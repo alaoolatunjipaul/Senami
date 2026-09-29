@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens are defined in Phase 2 (spec section 9). Until then this file
+ * only establishes the Tailwind entry point and the base document defaults.
+ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas, #ffffff);
+    color: var(--color-text, #101828);
+  }
+}

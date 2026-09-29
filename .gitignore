@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test output
+coverage/
+
+# Environment - never commit real secrets (spec sections 41, 53, 55)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# Vercel
+.vercel
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local database artefacts (spec section 31)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
