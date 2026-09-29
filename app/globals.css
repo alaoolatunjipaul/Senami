@@ -1,16 +1,236 @@
 @import "tailwindcss";
 
-/*
- * Design tokens are defined in Phase 2 (spec section 9). Until then this file
- * only establishes the Tailwind entry point and the base document defaults.
- */
+/* ==========================================================================
+   Senami design tokens
+   --------------------------------------------------------------------------
+   One source of truth for the visual language. Components consume these via
+   generated utilities (bg-surface, text-ink, border-line, ...) so that no
+   arbitrary colour, radius or shadow is ever hard-coded in a component.
+
+   Principles (spec section 8):
+   - Calm, operational, information-dense. Built for scanning, not decoration.
+   - Cool neutrals, dark text, one blue action colour, and a small set of
+     semantic colours that always mean the same thing.
+   - Restrained radii (max 8px) and shadows. No gradients, no glassmorphism.
+   - Status is never communicated by colour alone (see status-* tokens, which
+     are always paired with a label or shape in the component).
+   ========================================================================== */
+
+@theme {
+  /* --- Typography ------------------------------------------------------- */
+  --font-sans:
+    "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  /* --- Cool neutral surfaces & text ------------------------------------- */
+  --color-canvas: #ffffff;
+  --color-canvas-subtle: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f5f8;
+  --color-surface-hover: #eef2f6;
+  --color-surface-sunken: #eaeff4;
+
+  --color-ink: #101828;
+  --color-ink-secondary: #344054;
+  --color-ink-muted: #667085;
+  --color-ink-subtle: #98a2b3;
+  --color-ink-inverse: #ffffff;
+
+  --color-line: #e4e7ec;
+  --color-line-strong: #cfd4dc;
+  --color-line-strongest: #98a2b3;
+
+  /* --- Brand / primary action (blue) ------------------------------------ */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-primary-subtle: #eff6ff;
+  --color-primary-muted: #dbeafe;
+  --color-primary-ink: #1e3a8a;
+
+  /* --- Semantic status colours ------------------------------------------ */
+  --color-success: #067647;
+  --color-success-subtle: #ecfdf3;
+  --color-success-muted: #abefc6;
+
+  --color-warning: #b54708;
+  --color-warning-subtle: #fffaeb;
+  --color-warning-muted: #fedf89;
+
+  --color-critical: #b42318;
+  --color-critical-hover: #912018;
+  --color-critical-subtle: #fef3f2;
+  --color-critical-muted: #fecdca;
+
+  --color-info: #175cd3;
+  --color-info-subtle: #eff8ff;
+  --color-info-muted: #b2ddff;
+
+  --color-neutral: #475467;
+  --color-neutral-subtle: #f2f4f7;
+  --color-neutral-muted: #e4e7ec;
+
+  --color-ai: #6941c6;
+  --color-ai-subtle: #f4f3ff;
+  --color-ai-muted: #d9d6fe;
+
+  /* --- Message visibility (the core domain distinction, spec section 3) -- */
+  --color-visibility-public: #175cd3;
+  --color-visibility-public-subtle: #eff8ff;
+  --color-visibility-public-muted: #b2ddff;
+
+  --color-visibility-private: #6941c6;
+  --color-visibility-private-subtle: #f4f3ff;
+  --color-visibility-private-muted: #d9d6fe;
+
+  --color-visibility-internal: #b54708;
+  --color-visibility-internal-subtle: #fffaeb;
+  --color-visibility-internal-muted: #fedf89;
+
+  --color-visibility-system: #475467;
+  --color-visibility-system-subtle: #f2f4f7;
+  --color-visibility-system-muted: #e4e7ec;
+
+  /* --- Priority ---------------------------------------------------------- */
+  --color-priority-critical: #b42318;
+  --color-priority-critical-subtle: #fef3f2;
+  --color-priority-high: #c4320a;
+  --color-priority-high-subtle: #fff4ed;
+  --color-priority-medium: #b54708;
+  --color-priority-medium-subtle: #fffaeb;
+  --color-priority-low: #175cd3;
+  --color-priority-low-subtle: #eff8ff;
+  --color-priority-normal: #475467;
+  --color-priority-normal-subtle: #f2f4f7;
+
+  /* --- Sentiment --------------------------------------------------------- */
+  --color-sentiment-positive: #067647;
+  --color-sentiment-positive-subtle: #ecfdf3;
+  --color-sentiment-neutral: #475467;
+  --color-sentiment-neutral-subtle: #f2f4f7;
+  --color-sentiment-frustrated: #b54708;
+  --color-sentiment-frustrated-subtle: #fffaeb;
+  --color-sentiment-angry: #b42318;
+  --color-sentiment-angry-subtle: #fef3f2;
+  --color-sentiment-urgent: #c4320a;
+  --color-sentiment-urgent-subtle: #fff4ed;
+
+  /* --- SLA states -------------------------------------------------------- */
+  --color-sla-safe: #067647;
+  --color-sla-warning: #b54708;
+  --color-sla-breached: #b42318;
+  --color-sla-met: #067647;
+  --color-sla-paused: #667085;
+
+  /* --- Conversation / case status ---------------------------------------- */
+  --color-status-open: #175cd3;
+  --color-status-pending: #b54708;
+  --color-status-awaiting-customer: #6941c6;
+  --color-status-escalated: #b42318;
+  --color-status-resolved: #067647;
+  --color-status-closed: #475467;
+
+  /* --- Social channels (spec section 4) ---------------------------------- */
+  --color-channel-instagram: #d62976;
+  --color-channel-facebook: #1877f2;
+  --color-channel-x: #101828;
+  --color-channel-tiktok: #0f9488;
+
+  /* --- Radii (restrained: operational, not playful) ---------------------- */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* --- Shadows (restrained; depth only where something floats) ----------- */
+  --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(16 24 40 / 0.1), 0 1px 2px -1px rgb(16 24 40 / 0.06);
+  --shadow-md: 0 4px 8px -2px rgb(16 24 40 / 0.1), 0 2px 4px -2px rgb(16 24 40 / 0.06);
+  --shadow-lg: 0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.03);
+  --shadow-focus: 0 0 0 3px rgb(37 99 235 / 0.35);
+
+  /* --- Motion (minimal and purposeful) ----------------------------------- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+}
+
 @layer base {
+  /*
+   * Focus is always visible and never removed - a hard WCAG 2.2 requirement for
+   * an application that is used all day by keyboard operators.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
+    color-scheme: light;
   }
 
   body {
-    background-color: var(--color-canvas, #ffffff);
-    color: var(--color-text, #101828);
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Numeric columns (SLAs, counts, timestamps) must not jitter as they change. */
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: var(--color-primary-muted);
+    color: var(--color-primary-ink);
+  }
+
+  /* Respect users who have asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * A visible, consistent scrollbar for long operational lists. Firefox and
+   * WebKit are both handled; the track stays transparent.
+   */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border-radius: var(--radius-full);
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-line-strongest);
   }
 }

@@ -11,6 +11,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // React Compiler auto-memoises components, which matters for a data-heavy UI
+  // with live-updating queues.
+  reactCompiler: true,
   // Type-safe `href` values across the app. Route literals are checked at build
   // time, so a renamed or deleted route fails typecheck rather than 404ing.
   typedRoutes: true,
