@@ -201,10 +201,10 @@ Senami is delivered incrementally, with lint, typecheck, test and build green at
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Foundation: repo, TypeScript, lint, format, test, env, docs | In progress |
-| 2 | Design system: tokens, typography, primitives | Pending |
-| 3 | Application shell: sidebar, header, search, notifications, profile | Pending |
-| 4 | Authentication and RBAC | Pending |
+| 1 | Foundation: repo, TypeScript, lint, format, test, env, docs | Done |
+| 2 | Design system: tokens, typography, primitives | Done |
+| 3 | Application shell: sidebar, header, search, notifications, profile | Done |
+| 4 | Authentication and RBAC | Done |
 | 5–17 | Database, inbox, workspace, customers, AI, escalation, supervisor, QA, admin, audit, testing, docs, deployment | Pending |
 
 ## Deployment
