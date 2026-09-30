@@ -1,3 +1,4 @@
+import { deriveInitials } from "@/lib/domain/user";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,16 +40,7 @@ function hashString(value: string): number {
 }
 
 /** Derive up to two initials from a display name. */
-export function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return (parts[0] ?? "").slice(0, 2).toUpperCase();
-
-  const first = parts[0]?.[0] ?? "";
-  const last = parts[parts.length - 1]?.[0] ?? "";
-  return `${first}${last}`.toUpperCase();
-}
+export { deriveInitials as getInitials };
 
 export interface AvatarProps {
   name: string;
@@ -81,7 +73,7 @@ export function Avatar({ name, size = "md", presence, className }: AvatarProps) 
         className,
       )}
     >
-      {getInitials(name)}
+      {deriveInitials(name)}
       {presenceColor ? (
         <span
           aria-hidden="true"
