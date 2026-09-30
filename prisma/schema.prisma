@@ -1,0 +1,390 @@
+// Senami Phase 5 - PostgreSQL schema (plan-only; no database is provisioned yet).
+// Migrations, generated client and seeding land in the Phase 5 implementation step.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  AGENT
+  SUPERVISOR
+  QA
+  ADMIN
+}
+
+enum ChannelId {
+  instagram
+  facebook
+  x
+  tiktok
+}
+
+enum MessageType {
+  POST
+  COMMENT
+  MENTION
+  REPLY
+  DIRECT_MESSAGE
+  SYSTEM
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL_NOTE
+  SYSTEM
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  NORMAL
+}
+
+enum SlaState {
+  OK
+  WARNING
+  BREACHED
+  PAUSED
+  EXEMPT
+}
+
+enum EscalationReason {
+  NEGATIVE_SENTIMENT
+  CONTACT_INFO_REQUEST
+  URGENT_PRIORITY_COMPLAINT
+  BUSINESS_HOURS_EXPECTATION
+  LEGAL
+  OTHER
+}
+
+enum EscalationStatus {
+  OPEN
+  ACCEPTED
+  RESOLVED
+}
+
+enum AiGenerationKind {
+  SUMMARY
+  DRAFT_REPLY
+  CRM_NOTE
+  PRIORITY_RECOMMENDATION
+  INTENT
+  SENTIMENT
+}
+
+enum AiGenerationStatus {
+  SUGGESTED
+  EDITED
+  CONFIRMED
+  USED
+  REJECTED
+}
+
+enum QaVerdict {
+  PASSED
+  NEEDS_RESUMPTION
+  COACHING_REQUIRED
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  ASSIGNMENT
+  SLA_WARNING
+  SLA_BREACHED
+  ESCALATION
+  QA_COMPLETED
+}
+
+model Team {
+  id        String   @id
+  name      String
+  members   User[]
+  escalations Escalation[] @relation("EscalationTarget")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String
+  role      Role     @default(AGENT)
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments ConversationAssignment[] @relation("AssignmentActor")
+  assigned    Conversation[]           @relation("ConversationAssignee")
+  drafts      Draft[]
+  qaReviews   QaReview[]
+  auditEvents AuditEvent[]             @relation("AuditActor")
+  escalations Escalation[]             @relation("EscalationActor")
+  notifications Notification[]
+
+  @@index([teamId])
+  @@index([role])
+}
+
+model Customer {
+  id            String         @id
+  displayName   String
+  socialAccounts SocialAccount[]
+  conversations Conversation[]
+  cases         Case[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SocialAccount {
+  id                String   @id
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channel           ChannelId
+  providerAccountId String
+  handle            String
+  displayName       String
+  url               String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([customerId, channel, providerAccountId])
+  @@index([channel, handle])
+}
+
+model Channel {
+  id             String        @id
+  channelId      ChannelId     @unique
+  name           String
+  isEnabled      Boolean       @default(true)
+  isMock         Boolean       @default(true)
+  config         Json?
+  conversations  Conversation[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Conversation {
+  id                   String               @id
+  channelChannelId     String?
+  channelSettings      Channel?             @relation(fields: [channelChannelId], references: [id])
+  channelId            ChannelId
+  externalConversationId String
+  externalUrl          String?
+  subject              String
+  status               ConversationStatus    @default(PENDING)
+  priority             Priority              @default(NORMAL)
+
+  customerId           String?
+  customer             Customer?            @relation(fields: [customerId], references: [id])
+
+  lastMessageAt        DateTime?
+  lastMessageSnippet   String?
+
+  slaPolicyId          String?
+  slaPolicy            SlaPolicy?           @relation(fields: [slaPolicyId], references: [id])
+  slaState             SlaState             @default(OK)
+  slaDueAt             DateTime?
+  slaWarningAt         DateTime?
+  slaBreachedAt        DateTime?
+  slaPausedAt          DateTime?
+  slaPausedReason      String?
+
+  assignedToId         String?
+  assignedTo           User?                @relation("ConversationAssignee", fields: [assignedToId], references: [id])
+
+  caseId               String?
+  case                 Case?                @relation(fields: [caseId], references: [id])
+
+  messages      Message[]
+  assignments   ConversationAssignment[]
+  escalations   Escalation[]
+  aiGenerations AiGeneration[]
+  drafts        Draft[]
+  qaReviews     QaReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([channelId, status, priority])
+  @@index([status, slaState, slaBreachedAt])
+  @@index([customerId])
+  @@index([assignedToId])
+  @@index([slaPolicyId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String     @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  externalMessageId String?
+  type           MessageType
+  visibility     Visibility
+  senderId       String?
+  sender         Customer?  @relation(fields: [senderId], references: [id])
+  authorUserId   String?
+  author         User?      @relation(fields: [authorUserId], references: [id])
+  content        String
+  attachments    Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([type])
+}
+
+model ConversationAssignment {
+  id             String       @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  assignedById   String
+  assignedBy     User         @relation("AssignmentActor", fields: [assignedById], references: [id])
+  assignedToId   String
+  reason         String?
+  revertedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([assignedToId, revertedAt])
+}
+
+model Case {
+  id            String         @id
+  customerId    String
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  title         String
+  priority      Priority       @default(NORMAL)
+  status        ConversationStatus @default(OPEN)
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([customerId, status])
+}
+
+model Escalation {
+  id             String           @id
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reason         EscalationReason
+  comment        String?
+  targetTeamId   String?
+  targetTeam     Team?            @relation("EscalationTarget", fields: [targetTeamId], references: [id])
+  raisedById     String
+  raisedBy       User             @relation("EscalationActor", fields: [raisedById], references: [id])
+  status         EscalationStatus @default(OPEN)
+  resolvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([targetTeamId, status])
+}
+
+model AiGeneration {
+  id             String               @id
+  conversationId String
+  conversation   Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String?
+  message        Message?             @relation(fields: [messageId], references: [id])
+  kind           AiGenerationKind
+  model          String
+  output         Json
+  status         AiGenerationStatus   @default(SUGGESTED)
+  createdAt      DateTime             @default(now())
+
+  @@index([conversationId, status])
+  @@index([createdAt])
+}
+
+model Draft {
+  id             String       @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorUserId   String
+  author         User         @relation(fields: [authorUserId], references: [id])
+  content        String
+  status         String       @default("DRAFT")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([conversationId, status])
+}
+
+model QaReview {
+  id             String       @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  reviewer       User         @relation(fields: [reviewerId], references: [id])
+  verdict        QaVerdict
+  score          Int
+  flags          Json?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([conversationId])
+  @@index([reviewerId, createdAt])
+}
+
+model SlaPolicy {
+  id                    String   @id
+  name                  String
+  priority              Priority @unique
+  responseTargetMinutes Int
+  warningThresholdPercent Float   @default(0.8)
+  isActive              Boolean  @default(true)
+  conversations         Conversation[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Notification {
+  id        String           @id
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  readAt    DateTime?
+  payload   Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model AuditEvent {
+  id          String   @id
+  eventType   String
+  actorId     String?
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
+  customerId  String?
+  conversationId String?
+  targetType  String?
+  targetId    String?
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+  @@index([actorId, createdAt])
+  @@index([conversationId, createdAt])
+}

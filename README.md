@@ -224,6 +224,7 @@ instruction. Preview deployments first.
 | `docs/API.md` | REST API reference and conventions |
 | `docs/RBAC.md` | Roles, permissions, enforcement |
 | `docs/AI-GUARDRAILS.md` | AI safety rules and approval flow |
+| `docs/DATABASE-PLAN.md` | Phase 5 PostgreSQL/Prisma schema and seed plan |
 | `docs/TESTING.md` | Test strategy and suites |
 | `docs/DEMO-FLOW.md` | Demo walkthrough and scenarios |
 | `docs/PROJECT-SUMMARY.md` | Delivery status and decisions |
