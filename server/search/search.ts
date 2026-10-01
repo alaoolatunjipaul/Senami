@@ -1,3 +1,5 @@
+"use server";
+
 import type { SearchResultGroup } from "@/lib/domain/search";
 import { demoInboxStore } from "@/server/inbox/store";
 
