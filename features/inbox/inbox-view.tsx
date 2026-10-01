@@ -6,10 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { ConversationWorkspace } from "@/features/conversation/conversation-workspace";
 import { ConversationCard } from "@/features/inbox/conversation-card";
-import { ConversationPane } from "@/features/inbox/conversation-pane";
 import { FilterBar } from "@/features/inbox/filter-bar";
-import { useInboxConversation, useInboxList, useMarkRead } from "@/features/inbox/use-inbox";
+import { useInboxList, useMarkRead } from "@/features/inbox/use-inbox";
 import {
   DEFAULT_INBOX_QUERY,
   DEFAULT_PAGE_SIZE,
@@ -65,11 +65,10 @@ export function InboxView() {
   const { mutate: markRead, isPending: markingRead } = useMarkRead();
 
   const items = list.data?.items ?? [];
-  const listItem = items.find((item) => item.id === selectedId) ?? null;
-  // A conversation can be deep-linked from outside the current page or filter;
-  // fetch it directly so the pane always has something real to show.
-  const single = useInboxConversation(listItem === null ? selectedId : null);
-  const selected = listItem ?? single.data ?? null;
+  // The list card (when present) seeds the workspace while its own detail query
+  // loads. A deep-linked conversation that is not on the current page simply has
+  // no summary; the workspace fetches it directly.
+  const selected = items.find((item) => item.id === selectedId) ?? null;
 
   const updateFilters = useCallback((patch: Partial<InboxQuery>) => {
     setFilters((previous) => ({ ...previous, ...patch, page: patch.page ?? 1 }));
@@ -88,6 +87,14 @@ export function InboxView() {
       if (item.unread) markRead({ id: item.id, read: true });
     },
     [router, markRead],
+  );
+
+  const selectById = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      router.replace(`/inbox?conversation=${id}`, { scroll: false });
+    },
+    [router],
   );
 
   const total = list.data?.total ?? 0;
@@ -173,13 +180,15 @@ export function InboxView() {
       </section>
 
       <section className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <ConversationPane
-          item={selected}
+        <ConversationWorkspace
+          conversationId={selectedId}
+          summary={selected}
           now={now}
-          updating={markingRead}
+          updatingRead={markingRead}
           onSetRead={(read) => {
             if (selected) markRead({ id: selected.id, read });
           }}
+          onConversationCreated={selectById}
         />
       </section>
     </div>

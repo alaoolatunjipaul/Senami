@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { toInboxConversationDto } from "@/lib/domain/inbox";
 import { getSessionFromCookies } from "@/server/auth/session";
-import { demoInboxStore } from "@/server/inbox/store";
+import { demoConversationStore } from "@/server/conversations/store";
 import { can } from "@/server/rbac/permissions";
 
 /**
@@ -26,10 +26,12 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const conversation = demoInboxStore().getById(id);
-  if (!conversation) {
+  const store = demoConversationStore();
+  const conversation = store.getConversation(id);
+  const thread = store.threadInfo(id);
+  if (!conversation || !thread) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ conversation: toInboxConversationDto(conversation) });
+  return NextResponse.json({ conversation: toInboxConversationDto(conversation), thread });
 }

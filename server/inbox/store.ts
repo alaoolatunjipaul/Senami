@@ -305,6 +305,22 @@ function buildConversations(now: Date, rng: () => number): readonly InboxConvers
 
 type MutableConversation = { -readonly [K in keyof InboxConversation]: InboxConversation[K] };
 
+/** Fields the workspace may mutate on a conversation record. */
+export type ConversationPatch = Partial<
+  Pick<
+    InboxConversation,
+    | "assignedTo"
+    | "status"
+    | "lastMessageAt"
+    | "respondedAt"
+    | "unread"
+    | "needsReview"
+    | "priority"
+    | "slaPaused"
+    | "preview"
+  >
+>;
+
 export interface InboxListResult {
   readonly items: readonly InboxConversation[];
   readonly total: number;
@@ -318,6 +334,12 @@ export interface InboxStore {
   getById(id: string): InboxConversation | null;
   /** Set the read state of one conversation; returns the updated record or null. */
   markRead(id: string, read: boolean): InboxConversation | null;
+  /** Apply a partial change to a conversation; returns the updated record or null. */
+  update(id: string, patch: ConversationPatch): InboxConversation | null;
+  /** Add a new conversation (e.g. a linked direct-message thread). */
+  create(conversation: InboxConversation): InboxConversation;
+  /** The agents conversations can be assigned to. */
+  assignees(): readonly InboxAssignee[];
   /** Global search across conversations and customers. */
   search(term: string, limitPerGroup?: number): readonly SearchResultGroup[];
   /** Distinct filter values present in the dataset, for the filter controls. */
@@ -363,6 +385,33 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     if (!conversation) return null;
     conversation.unread = !read;
     return conversation;
+  }
+
+  function update(id: string, patch: ConversationPatch): InboxConversation | null {
+    const conversation = conversations.find((candidate) => candidate.id === id);
+    if (!conversation) return null;
+    Object.assign(conversation, patch, { id: conversation.id });
+    return conversation;
+  }
+
+  function create(conversation: InboxConversation): InboxConversation {
+    if (conversations.some((candidate) => candidate.id === conversation.id)) {
+      throw new Error(`A conversation with id ${conversation.id} already exists.`);
+    }
+    const mutable = { ...conversation } as MutableConversation;
+    conversations.push(mutable);
+    if (!customers.some((customer) => customer.id === mutable.customer.id)) {
+      customers.push(mutable.customer);
+    }
+    return mutable;
+  }
+
+  function assignees(): readonly InboxAssignee[] {
+    const seen = new Map<string, InboxAssignee>();
+    for (const agent of [...AGENTS, ESCALATION_OWNER]) {
+      if (!seen.has(agent.id)) seen.set(agent.id, agent);
+    }
+    return [...seen.values()];
   }
 
   function search(term: string, limitPerGroup = 8): readonly SearchResultGroup[] {
@@ -461,7 +510,7 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     }
   }
 
-  return { list, getById, markRead, search, options, attentionCount };
+  return { list, getById, markRead, update, create, assignees, search, options, attentionCount };
 }
 
 /** Process-wide store used by the app. Reset is exposed for tests only. */

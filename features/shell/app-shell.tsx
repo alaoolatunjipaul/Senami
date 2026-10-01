@@ -4,6 +4,7 @@ import { DemoBanner } from "@/features/shell/demo-banner";
 import { GlobalSearch, type SearchResultGroup } from "@/features/shell/global-search";
 import { NotificationsPopover, type NotificationItem } from "@/features/shell/notifications";
 import { ProfileMenu } from "@/features/shell/profile-menu";
+import { SessionProvider } from "@/features/shell/session-context";
 import { Sidebar } from "@/features/shell/sidebar";
 import { ConnectivityBanner } from "@/features/shell/connectivity";
 import type { Session } from "@/lib/domain/user";
@@ -35,22 +36,24 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="bg-canvas flex h-dvh flex-col">
-      <DemoBanner />
-      <div className="flex min-h-0 flex-1">
-        <Sidebar role={session.user.role} counts={counts} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ConnectivityBanner />
-          <header className="border-line bg-surface flex h-14 shrink-0 items-center gap-3 border-b px-4">
-            <GlobalSearch search={search} className="w-full max-w-md" />
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <NotificationsPopover items={notifications} />
-              <ProfileMenu session={session} onSignOut={onSignOut} />
-            </div>
-          </header>
-          <main className="scrollbar-slim min-h-0 flex-1 overflow-y-auto">{children}</main>
+    <SessionProvider session={session}>
+      <div className="bg-canvas flex h-dvh flex-col">
+        <DemoBanner />
+        <div className="flex min-h-0 flex-1">
+          <Sidebar role={session.user.role} counts={counts} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ConnectivityBanner />
+            <header className="border-line bg-surface flex h-14 shrink-0 items-center gap-3 border-b px-4">
+              <GlobalSearch search={search} className="w-full max-w-md" />
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                <NotificationsPopover items={notifications} />
+                <ProfileMenu session={session} onSignOut={onSignOut} />
+              </div>
+            </header>
+            <main className="scrollbar-slim min-h-0 flex-1 overflow-y-auto">{children}</main>
+          </div>
         </div>
       </div>
-    </div>
+    </SessionProvider>
   );
 }
