@@ -5,29 +5,19 @@ import { useRef, useState } from "react";
 import { CornerDownLeft, Search, Sparkles } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { SearchResultItem, SearchResultGroup } from "@/lib/domain/search";
 import { cn } from "@/lib/utils";
 
 /**
  * Global search (§13).
  *
  * Debounced, grouped (users, conversations, cases) and keyboard navigable.
- * The data source is injected so the full component ships in Phase 3 while the
- * index-backed query arrives with the data phases; the debounce contract is
- * tested regardless of backend.
+ * The data source is injected so the shell ships independently of the backend;
+ * results are grouped and open directly. The result shape lives in
+ * `lib/domain/search.ts` so the server provider shares one contract.
  */
 
-export interface SearchResultItem {
-  readonly id: string;
-  readonly label: string;
-  readonly sublabel?: string;
-  readonly href: string;
-}
-
-export interface SearchResultGroup {
-  readonly id: string;
-  readonly label: string;
-  readonly items: readonly SearchResultItem[];
-}
+export type { SearchResultItem, SearchResultGroup } from "@/lib/domain/search";
 
 export interface GlobalSearchProps {
   /** Pure lookup; debouncing and grouping are handled internally. */

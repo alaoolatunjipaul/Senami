@@ -1,14 +1,14 @@
-import type { SearchResultGroup } from "@/features/shell/global-search";
+import type { SearchResultGroup } from "@/lib/domain/search";
+import { demoInboxStore } from "@/server/inbox/store";
 
 /**
- * Global search provider (server action).
+ * Global search provider (server action, §13).
  *
- * The shell's search UI (debounce, grouping, keyboard navigation) is fully
- * implemented; this module is the data seam it queries. Results arrive with the
- * data phases (5-6) once conversations, customers and cases are indexed. Until
- * then it returns no results rather than fabricated ones.
+ * Searches the inbox dataset for conversations and customers. Results are
+ * grouped and each item carries an href the shell navigates to. The shell's
+ * debounce, keyboard navigation and grouping live in
+ * `features/shell/global-search.tsx`; this is only the data seam.
  */
 export async function searchAll(query: string): Promise<readonly SearchResultGroup[]> {
-  void query;
-  return [];
+  return demoInboxStore().search(query);
 }
