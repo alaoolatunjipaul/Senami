@@ -45,6 +45,8 @@ function renderHeader(props: Partial<ComponentProps<typeof ConversationHeader>> 
     onEscalate: vi.fn(),
     onMoveToPrivate: vi.fn(),
     onAddNote: vi.fn(),
+    onShowAiAssist: vi.fn(),
+    onShowResolve: vi.fn(),
   };
   render(
     <ConversationHeader
@@ -56,6 +58,8 @@ function renderHeader(props: Partial<ComponentProps<typeof ConversationHeader>> 
       canEscalate={props.canEscalate ?? true}
       canAssign={props.canAssign ?? true}
       canMoveToPrivate={props.canMoveToPrivate ?? true}
+      canUseAi={props.canUseAi ?? true}
+      canResolve={props.canResolve ?? true}
       {...handlers}
       {...props}
     />,

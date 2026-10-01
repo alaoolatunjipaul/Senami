@@ -9,10 +9,11 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { ConversationWorkspace } from "@/features/conversation/conversation-workspace";
 import { ConversationCard } from "@/features/inbox/conversation-card";
 import { FilterBar } from "@/features/inbox/filter-bar";
-import { useInboxList, useMarkRead } from "@/features/inbox/use-inbox";
+import { inboxQueryToSearchParams, useInboxList, useMarkRead } from "@/features/inbox/use-inbox";
 import {
   DEFAULT_INBOX_QUERY,
   DEFAULT_PAGE_SIZE,
+  inboxQueryFromSearchParams,
   type InboxConversationDto,
   type InboxQuery,
 } from "@/lib/domain/inbox";
@@ -25,6 +26,13 @@ import {
  * state: selecting a card updates the pane and the URL (so global-search deep
  * links resolve), and marking read mutates the store and refetches.
  */
+
+/** URL for a selected conversation that keeps the current filters intact. */
+function conversationHref(query: InboxQuery, id: string): string {
+  const params = new URLSearchParams(inboxQueryToSearchParams(query));
+  params.set("conversation", id);
+  return `/inbox?${params.toString()}`;
+}
 
 function hasActiveFilters(query: InboxQuery): boolean {
   return (
@@ -45,9 +53,13 @@ export function InboxView() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [filters, setFilters] = useState<InboxQuery>(() => ({ ...DEFAULT_INBOX_QUERY }));
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Dashboard tiles and shared links arrive as ?view=&sla=... so the inbox opens
+  // already filtered; the URL is the source of truth only on the first render.
+  const [filters, setFilters] = useState<InboxQuery>(() => ({
+    ...inboxQueryFromSearchParams(new URLSearchParams(searchParams.toString())),
+  }));
+  const [searchInput, setSearchInput] = useState(() => searchParams.get("q") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("q") ?? "");
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("conversation"));
   const [now] = useState(() => new Date());
 
@@ -80,21 +92,23 @@ export function InboxView() {
     setDebouncedSearch("");
   }, []);
 
+  // Keep the active filters in the URL when a conversation is selected, so the
+  // deep link still resolves to the same bucket after a refresh.
   const select = useCallback(
     (item: InboxConversationDto) => {
       setSelectedId(item.id);
-      router.replace(`/inbox?conversation=${item.id}`, { scroll: false });
+      router.replace(`${conversationHref(query, item.id)}`, { scroll: false });
       if (item.unread) markRead({ id: item.id, read: true });
     },
-    [router, markRead],
+    [router, markRead, query],
   );
 
   const selectById = useCallback(
     (id: string) => {
       setSelectedId(id);
-      router.replace(`/inbox?conversation=${id}`, { scroll: false });
+      router.replace(`${conversationHref(query, id)}`, { scroll: false });
     },
-    [router],
+    [router, query],
   );
 
   const total = list.data?.total ?? 0;

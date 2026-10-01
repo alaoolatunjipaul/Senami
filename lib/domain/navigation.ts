@@ -58,6 +58,7 @@ export const NAV_SECTION_LABELS: Record<NavSection, string> = {
 };
 
 export type NavItemId =
+  | "dashboard"
   | "inbox"
   | "instagram"
   | "facebook"
@@ -109,6 +110,15 @@ export interface NavItem {
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   // Work – agent-facing
+  {
+    id: "dashboard",
+    label: "Agent workspace",
+    helper: "Today, your queue and your response metrics",
+    href: "/dashboard",
+    icon: Gauge,
+    section: "work",
+    roles: ["AGENT", "SUPERVISOR", "QA"],
+  },
   {
     id: "inbox",
     label: "Inbox",

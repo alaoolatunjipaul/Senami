@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import type { AiAction, AiSuggestionDto } from "@/lib/domain/ai";
+import type { CustomerContextDto } from "@/lib/domain/customer";
 import type {
   AuditEventDto,
   ConversationMessageDto,
@@ -115,6 +117,7 @@ export interface SendMessageVariables {
   kind: "public" | "private" | "internal_note";
   body: string;
   attachments: readonly MessageAttachment[];
+  clientRequestId: string;
 }
 
 function useInvalidateConversation(id: string | null) {
@@ -129,10 +132,11 @@ export function useSendMessage(id: string | null) {
   const invalidate = useInvalidateConversation(id);
   return useMutation({
     mutationFn: (variables: SendMessageVariables) =>
-      requestJson<{ message: ConversationMessageDto; conversation: InboxConversationDto }>(
-        `/api/conversations/${encodeURIComponent(id as string)}/messages`,
-        jsonInit("POST", variables),
-      ),
+      requestJson<{
+        message: ConversationMessageDto;
+        conversation: InboxConversationDto;
+        duplicate: boolean;
+      }>(`/api/conversations/${encodeURIComponent(id as string)}/messages`, jsonInit("POST", variables)),
     onSuccess: invalidate,
   });
 }
@@ -174,5 +178,97 @@ export function useMoveToPrivate(id: string | null) {
         jsonInit("POST", variables),
       ),
     onSuccess: invalidate,
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Phase 8 additions: customer context, AI assistance, status and audit hooks
+ * ---------------------------------------------------------------------- */
+
+export interface CustomerContextResponse {
+  customer: CustomerContextDto;
+  history: CustomerHistoryDto;
+}
+
+export function useCustomerContext(id: string | null) {
+  return useQuery({
+    queryKey: ["conversation", id, "customer"],
+    enabled: id !== null,
+    queryFn: () =>
+      requestJson<CustomerContextResponse>(`/api/conversations/${encodeURIComponent(id as string)}/customer`),
+  });
+}
+
+export interface AiSuggestionResponse {
+  suggestion: AiSuggestionDto;
+  disposition: "draft_only";
+  notice: string;
+}
+
+export function useAiSuggestion(id: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: { action: AiAction; input?: string }) =>
+      requestJson<AiSuggestionResponse>(
+        `/api/conversations/${encodeURIComponent(id as string)}/ai`,
+        jsonInit("POST", variables),
+      ),
+    onSuccess: () => {
+      // Generation changes the audit trail, so refresh it - but never the
+      // timeline: the assistant must not appear to have posted anything.
+      void queryClient.invalidateQueries({ queryKey: ["conversation", id, "audit"] });
+    },
+  });
+}
+
+export interface DraftEditVariables {
+  action: "adopted" | "edited" | "cleared";
+  source: "ai" | "agent";
+  characters: number;
+}
+
+export function useRecordDraftEdit(id: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: DraftEditVariables) =>
+      requestJson<{ event: AuditEventDto }>(
+        `/api/conversations/${encodeURIComponent(id as string)}/draft-edit`,
+        jsonInit("POST", variables),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["conversation", id, "audit"] });
+    },
+  });
+}
+
+export type ConversationStatusVariables =
+  | { status: "resolved"; note: string }
+  | { status: "open" | "awaiting_customer"; reason: string };
+
+export function useConversationStatus(id: string | null) {
+  const invalidate = useInvalidateConversation(id);
+  return useMutation({
+    mutationFn: (variables: ConversationStatusVariables) =>
+      requestJson<{
+        conversation: InboxConversationDto;
+        event: AuditEventDto;
+        message: ConversationMessageDto;
+      }>(`/api/conversations/${encodeURIComponent(id as string)}/status`, jsonInit("PATCH", variables)),
+    onSuccess: invalidate,
+  });
+}
+
+/** Records that an agent opened the conversation. Idempotent server-side. */
+export function useRecordOpen(id: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      requestJson<{ event: AuditEventDto; firstOpen: boolean }>(
+        `/api/conversations/${encodeURIComponent(id as string)}/open`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["conversation", id, "audit"] });
+    },
   });
 }

@@ -25,6 +25,7 @@ const ROUTE_PERMISSIONS: ReadonlyArray<readonly [prefix: string, permission: Per
   ["/interactions", "interaction.view"],
   ["/channels", "channel.view"],
   ["/inbox", "inbox.view"],
+  ["/dashboard", "inbox.view"],
 ];
 
 const ROUTE_PREFIXES = ROUTE_PERMISSIONS.map(([prefix]) => prefix);
@@ -43,9 +44,11 @@ export function canAccessRoute(role: Role | null, pathname: string): boolean {
 }
 
 /** Sensible home for a role when a route was blocked. */
-export function homePathForRole(role: Role | null): "/inbox" | "/login" {
+export function homePathForRole(role: Role | null): "/dashboard" | "/inbox" | "/login" {
   if (role === null) return "/login";
-  return can(role, "inbox.view") ? "/inbox" : "/login";
+  if (!can(role, "inbox.view")) return "/login";
+  // Agents work from their own workspace; everyone else lands on the queue.
+  return role === "AGENT" ? "/dashboard" : "/inbox";
 }
 
 /** Extracted so middleware shares the exact list with tests. */

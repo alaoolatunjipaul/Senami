@@ -5,6 +5,8 @@ import {
   attachmentKindOf,
   sortTimeline,
   summariseEscalation,
+  summariseReopen,
+  summariseResolution,
   type AuditEvent,
   type AuditEventType,
   type ConversationMessage,
@@ -13,6 +15,7 @@ import {
   type EscalationReason,
   type MessageAttachment,
   type MessageAuthor,
+  type ResolvableStatus,
 } from "@/lib/domain/conversation";
 import { DEFAULT_INBOX_QUERY, type InboxAssignee, type InboxConversation } from "@/lib/domain/inbox";
 import { INTENT_META, type MessageKind } from "@/lib/domain/taxonomy";
@@ -100,6 +103,39 @@ export interface SendMessageInput {
   readonly attachments: readonly MessageAttachment[];
   readonly author: MessageAuthor;
   readonly replyToId?: string | null;
+  /**
+   * Stable id for one send attempt. A retry with the same value returns the
+   * original message instead of sending twice (§42 duplicate-send prevention).
+   */
+  readonly clientRequestId?: string | null;
+}
+
+export interface OpenInput {
+  readonly actor: string;
+}
+
+export interface DraftEditInput {
+  readonly actor: string;
+  readonly action: string;
+  readonly source: "ai" | "agent";
+  readonly characters: number;
+}
+
+export interface AiSuggestionInput {
+  readonly actor: string;
+  readonly action: string;
+  readonly suggestionId: string;
+}
+
+export interface ResolveInput {
+  readonly note: string;
+  readonly actor: string;
+}
+
+export interface StatusChangeInput {
+  readonly status: ResolvableStatus;
+  readonly reason: string;
+  readonly actor: string;
 }
 
 export interface AssignInput {
@@ -130,6 +166,31 @@ export interface MoveToPrivateResult {
 export interface SendMessageResult {
   readonly message: ConversationMessage;
   readonly conversation: InboxConversation;
+  /** True when this call matched an earlier send with the same clientRequestId. */
+  readonly duplicate: boolean;
+}
+
+export interface OpenResult {
+  readonly conversation: InboxConversation;
+  readonly event: AuditEvent;
+  /** False when this agent had already opened the conversation. */
+  readonly firstOpen: boolean;
+}
+
+export interface DraftEditResult {
+  readonly conversation: InboxConversation;
+  readonly event: AuditEvent;
+}
+
+export interface AiSuggestionResult {
+  readonly conversation: InboxConversation;
+  readonly event: AuditEvent;
+}
+
+export interface StatusChangeResult {
+  readonly conversation: InboxConversation;
+  readonly event: AuditEvent;
+  readonly systemMessage: ConversationMessage;
 }
 
 export interface AssignResult {
@@ -153,6 +214,14 @@ export interface ConversationStore {
   assign(id: string, input: AssignInput, now?: Date): AssignResult | null;
   escalate(id: string, input: EscalateInput, now?: Date): EscalateResult | null;
   moveToPrivate(id: string, input: MoveToPrivateInput, now?: Date): MoveToPrivateResult | null;
+  /** Record that an agent opened the conversation; repeated opens are ignored. */
+  recordOpen(id: string, input: OpenInput, now?: Date): OpenResult | null;
+  /** Record an edit to a draft, so the audit trail shows what the agent changed. */
+  recordDraftEdit(id: string, input: DraftEditInput, now?: Date): DraftEditResult | null;
+  /** Record that AI assistance produced a suggestion. Never a sent message. */
+  recordAiSuggestion(id: string, input: AiSuggestionInput, now?: Date): AiSuggestionResult | null;
+  resolve(id: string, input: ResolveInput, now?: Date): StatusChangeResult | null;
+  setStatus(id: string, input: StatusChangeInput, now?: Date): StatusChangeResult | null;
   reset(now?: Date): void;
 }
 
@@ -174,6 +243,8 @@ export function buildConversationStore(): ConversationStore {
   let inbox = demoInboxStore();
   const threads = new Map<string, ThreadState>();
   const links = new Map<string, ThreadLink>();
+  const sentRequests = new Map<string, ConversationMessage>();
+  const openedBy = new Map<string, Set<string>>();
   let dmCounter = 0;
   let eventSeq = 0;
 
@@ -492,6 +563,21 @@ export function buildConversationStore(): ConversationStore {
     const conversation = inbox.getById(id);
     if (!conversation) return null;
 
+    const requestId = input.clientRequestId?.trim() ?? "";
+    if (requestId.length > 0) {
+      const key = `${id}::${requestId}`;
+      const existing = sentRequests.get(key);
+      // A retry of the same send returns the original message: the agent never
+      // gets two copies of one reply because they double-clicked (§42).
+      if (existing) {
+        return {
+          message: existing,
+          conversation: inbox.getById(id) ?? conversation,
+          duplicate: true,
+        };
+      }
+    }
+
     const state = ensureThread(id);
     const seq = state.messages.length;
     const message = makeMessage(id, seq, {
@@ -520,7 +606,138 @@ export function buildConversationStore(): ConversationStore {
         status: isReply ? "awaiting_customer" : conversation.status,
       }) ?? conversation;
 
-    return { message, conversation: updated };
+    if (requestId.length > 0) {
+      sentRequests.set(`${id}::${requestId}`, message);
+    }
+
+    return { message, conversation: updated, duplicate: false };
+  }
+
+  function recordOpen(id: string, input: OpenInput, now: Date = new Date()): OpenResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+
+    const actors = openedBy.get(id) ?? new Set<string>();
+    if (actors.has(input.actor)) {
+      const existing = latestOpenEvent(id, input.actor);
+      return existing === null ? null : { conversation, event: existing, firstOpen: false };
+    }
+
+    actors.add(input.actor);
+    openedBy.set(id, actors);
+
+    const event = createAudit(
+      id,
+      "opened",
+      `${AUDIT_EVENT_META.opened.label} by ${input.actor}.`,
+      input.actor,
+      now,
+      { status: conversation.status },
+    );
+    ensureThread(id).audit.push(event);
+
+    return { conversation, event, firstOpen: true };
+  }
+
+  function latestOpenEvent(id: string, actor: string): AuditEvent | null {
+    const events = ensureThread(id).audit.filter((event) => event.type === "opened" && event.actor === actor);
+    return events.at(-1) ?? null;
+  }
+
+  function recordDraftEdit(id: string, input: DraftEditInput, now: Date = new Date()): DraftEditResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+
+    const event = createAudit(
+      id,
+      "draft_edited",
+      `${AUDIT_EVENT_META.draft_edited.label} (${input.action}, ${input.source}).`,
+      input.actor,
+      now,
+      { action: input.action, source: input.source, characters: input.characters },
+    );
+    ensureThread(id).audit.push(event);
+
+    return { conversation, event };
+  }
+
+  function recordAiSuggestion(id: string, input: AiSuggestionInput, now: Date = new Date()): AiSuggestionResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+
+    const event = createAudit(
+      id,
+      "ai_suggested",
+      `${AUDIT_EVENT_META.ai_suggested.label} (${input.action}). Draft only - not sent.`,
+      input.actor,
+      now,
+      { action: input.action, suggestionId: input.suggestionId, sent: false },
+    );
+    ensureThread(id).audit.push(event);
+
+    return { conversation, event };
+  }
+
+  function systemMessageFor(id: string, state: ThreadState, body: string, now: Date): ConversationMessage {
+    const message = makeMessage(id, state.messages.length, {
+      kind: "system",
+      direction: "outbound",
+      author: SYSTEM_AUTHOR,
+      body,
+      createdAt: now,
+      attachments: [],
+      replyToId: null,
+      aiConfidence: null,
+    });
+    state.messages.push(message);
+    return message;
+  }
+
+  function resolve(id: string, input: ResolveInput, now: Date = new Date()): StatusChangeResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+    if (conversation.status === "resolved") return null;
+
+    const updated = inbox.update(id, { status: "resolved", needsReview: false, unread: false });
+    if (!updated) return null;
+
+    const state = ensureThread(id);
+    const systemMessage = systemMessageFor(id, state, summariseResolution(input.note), now);
+    const event = createAudit(id, "resolved", summariseResolution(input.note), input.actor, now, {
+      previousStatus: conversation.status,
+    });
+    state.audit.push(event);
+
+    return { conversation: updated, event, systemMessage };
+  }
+
+  function setStatus(id: string, input: StatusChangeInput, now: Date = new Date()): StatusChangeResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+    if (conversation.status === input.status) return null;
+
+    const updated = inbox.update(id, {
+      status: input.status,
+      // Reopening puts the conversation back in the queue rather than leaving it
+      // silently resolved.
+      needsReview: input.status === "open" ? true : conversation.needsReview,
+    });
+    if (!updated) return null;
+
+    const state = ensureThread(id);
+    const reopened = conversation.status === "resolved" || conversation.status === "closed";
+    const summary = reopened
+      ? summariseReopen(input.reason)
+      : `Status changed to ${input.status}.`;
+
+    const systemMessage = systemMessageFor(id, state, summary, now);
+    const event = createAudit(id, "status_changed", summary, input.actor, now, {
+      status: input.status,
+      previousStatus: conversation.status,
+    });
+    state.audit.push(event);
+
+    return { conversation: updated, event, systemMessage };
   }
 
   function assign(id: string, input: AssignInput, now: Date = new Date()): AssignResult | null {
@@ -719,6 +936,8 @@ export function buildConversationStore(): ConversationStore {
   function reset(now: Date = new Date()): void {
     threads.clear();
     links.clear();
+    sentRequests.clear();
+    openedBy.clear();
     dmCounter = 0;
     eventSeq = 0;
     // Replies and assignments mutate the shared inbox, so rebuild it from the
@@ -736,6 +955,11 @@ export function buildConversationStore(): ConversationStore {
     assign,
     escalate,
     moveToPrivate,
+    recordOpen,
+    recordDraftEdit,
+    recordAiSuggestion,
+    resolve,
+    setStatus,
     reset,
   };
 }

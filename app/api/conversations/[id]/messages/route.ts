@@ -35,6 +35,7 @@ const bodySchema = z.object({
   body: z.string().max(MESSAGE_BODY_MAX),
   attachments: z.array(attachmentSchema).max(5).default([]),
   replyToId: z.string().min(1).optional(),
+  clientRequestId: z.string().min(1).max(120).optional(),
 });
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -95,17 +96,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     attachments: toAttachments(parsed.data.attachments),
     author: messageAuthorFromUser(session.user),
     replyToId: parsed.data.replyToId ?? null,
+    clientRequestId: parsed.data.clientRequestId ?? null,
   });
 
   if (!result) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // A retry with the same clientRequestId is answered with the original message
+  // and 200, so a double-clicked Send can never post twice (§42).
   return NextResponse.json(
     {
       message: toConversationMessageDto(result.message),
       conversation: toInboxConversationDto(result.conversation),
+      duplicate: result.duplicate,
     },
-    { status: 201 },
+    { status: result.duplicate ? 200 : 201 },
   );
 }

@@ -2,10 +2,12 @@
 
 import {
   CheckCheck,
+  CheckCircle2,
   History,
   Lock,
   MailOpen,
   ShieldAlert,
+  Sparkles,
   StickyNote,
   UserPlus,
   UserRound,
@@ -42,6 +44,10 @@ export interface ConversationHeaderProps {
   canEscalate: boolean;
   canAssign: boolean;
   canMoveToPrivate: boolean;
+  /** Phase 8: AI drafting assistance. */
+  canUseAi: boolean;
+  /** Phase 8: resolving or reopening the conversation. */
+  canResolve: boolean;
   onSetRead: (read: boolean) => void;
   onShowCustomerHistory: () => void;
   onShowConversationHistory: () => void;
@@ -49,6 +55,8 @@ export interface ConversationHeaderProps {
   onEscalate: () => void;
   onMoveToPrivate: () => void;
   onAddNote: () => void;
+  onShowAiAssist: () => void;
+  onShowResolve: () => void;
 }
 
 export function ConversationHeader({
@@ -60,6 +68,8 @@ export function ConversationHeader({
   canEscalate,
   canAssign,
   canMoveToPrivate,
+  canUseAi,
+  canResolve,
   onSetRead,
   onShowCustomerHistory,
   onShowConversationHistory,
@@ -67,11 +77,14 @@ export function ConversationHeader({
   onEscalate,
   onMoveToPrivate,
   onAddNote,
+  onShowAiAssist,
+  onShowResolve,
 }: ConversationHeaderProps) {
   const sla = slaEvaluationOf(conversation, now);
   const status = CONVERSATION_STATUS_META[conversation.status];
   const sentiment = SENTIMENT_META[conversation.sentiment];
   const priority = PRIORITY_META[conversation.priority];
+  const isResolved = conversation.status === "resolved" || conversation.status === "closed";
 
   return (
     <header className="border-line bg-surface shrink-0 border-b">
@@ -140,9 +153,13 @@ export function ConversationHeader({
       </div>
 
       <div className="border-line flex flex-wrap items-center gap-1.5 border-t px-5 py-2">
+        <Button variant="ghost" size="sm" onClick={onShowAiAssist} disabled={!canUseAi}>
+          <Sparkles className="text-ai size-3.5" aria-hidden="true" />
+          AI Assist
+        </Button>
         <Button variant="ghost" size="sm" onClick={onShowCustomerHistory}>
           <UserRound className="size-3.5" aria-hidden="true" />
-          Customer History
+          Customer Context
         </Button>
         <Button variant="ghost" size="sm" onClick={onShowConversationHistory}>
           <History className="size-3.5" aria-hidden="true" />
@@ -159,6 +176,10 @@ export function ConversationHeader({
         <Button variant="ghost" size="sm" onClick={onAddNote} disabled={!canReply}>
           <StickyNote className="size-3.5" aria-hidden="true" />
           Add Note
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onShowResolve} disabled={!canResolve}>
+          <CheckCircle2 className="size-3.5" aria-hidden="true" />
+          {isResolved ? "Reopen" : "Resolve"}
         </Button>
         <Button
           variant="ghost"

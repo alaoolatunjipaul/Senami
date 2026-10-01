@@ -1,4 +1,4 @@
-import type { ChannelId } from "@/lib/config";
+import { CHANNELS, type ChannelId } from "@/lib/config";
 import { MONTH_MS, WEEK_MS } from "@/lib/format";
 import {
   evaluateSla,
@@ -69,12 +69,13 @@ export interface InboxConversation {
  * Views (the saved filters across the top of the inbox)
  * ---------------------------------------------------------------------- */
 
-export const INBOX_VIEWS = ["all", "assigned", "review", "priority", "awaiting", "escalated"] as const;
+export const INBOX_VIEWS = ["all", "assigned", "unassigned", "review", "priority", "awaiting", "escalated"] as const;
 export type InboxView = (typeof INBOX_VIEWS)[number];
 
 export const INBOX_VIEW_LABELS: Record<InboxView, string> = {
   all: "All conversations",
   assigned: "Assigned to Me",
+  unassigned: "Unassigned",
   review: "Needs Review",
   priority: "Priority",
   awaiting: "Awaiting Customer",
@@ -129,6 +130,37 @@ export const DEFAULT_INBOX_QUERY: InboxQuery = {
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
 };
+
+/**
+ * Read an `InboxQuery` back out of a URL, so a dashboard tile or a shared link
+ * lands on the inbox already filtered. Unknown values are ignored rather than
+ * throwing: a stale link should open the inbox, not an error page.
+ */
+export function inboxQueryFromSearchParams(params: URLSearchParams): InboxQuery {
+  const view = params.get("view");
+  const channels = params.getAll("channel");
+  const intent = params.get("intent");
+  const sentiment = params.get("sentiment");
+  const priority = params.get("priority");
+  const sla = params.get("sla");
+  const date = params.get("date");
+  const page = Number(params.get("page"));
+
+  return {
+    view: (INBOX_VIEWS as readonly string[]).includes(view ?? "") ? (view as InboxView) : "all",
+    channels: channels.filter((channel): channel is ChannelId => (CHANNELS as readonly string[]).includes(channel)),
+    intent: (INTENTS as readonly string[]).includes(intent ?? "") ? (intent as Intent) : "",
+    sentiment: (SENTIMENTS as readonly string[]).includes(sentiment ?? "") ? (sentiment as Sentiment) : "",
+    priority: (PRIORITIES as readonly string[]).includes(priority ?? "") ? (priority as Priority) : "",
+    sla: (SLA_FILTER_STATES as readonly string[]).includes(sla ?? "") ? (sla as SlaState) : "",
+    assigneeId: params.get("assignee") ?? "",
+    teamId: params.get("team") ?? "",
+    date: (DATE_PRESETS as readonly string[]).includes(date ?? "") ? (date as DatePreset) : "any",
+    search: params.get("q") ?? "",
+    page: Number.isInteger(page) && page > 0 ? page : 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+  };
+}
 
 export const INTENT_OPTIONS = INTENTS.map((intent) => ({ value: intent, label: INTENT_META[intent] }));
 export const SENTIMENT_OPTIONS = SENTIMENTS.map((sentiment) => ({
@@ -245,6 +277,9 @@ export function matchesInboxQuery(
   switch (query.view) {
     case "assigned":
       if (query.userId === undefined || item.assignedTo?.id !== query.userId) return false;
+      break;
+    case "unassigned":
+      if (item.assignedTo !== null) return false;
       break;
     case "review":
       if (!item.needsReview) return false;

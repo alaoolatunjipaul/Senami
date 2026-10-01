@@ -1,4 +1,5 @@
 import type { ConversationThreadInfo } from "@/lib/domain/conversation";
+import type { ConversationStatus } from "@/lib/domain/taxonomy";
 import { can } from "@/server/rbac/permissions";
 import type { Role } from "@/lib/domain/user";
 
@@ -20,6 +21,38 @@ export function canReplyToConversation(role: Role | null): boolean {
 
 export function canEscalateConversation(role: Role | null): boolean {
   return can(role, "conversation.escalate");
+}
+
+/** Resolving closes a conversation, so it needs its own permission. */
+export function canResolveConversation(role: Role | null): boolean {
+  return can(role, "conversation.resolve");
+}
+
+/**
+ * AI assistance is drafting only. It is gated separately from replying so a role
+ * that may write to a customer can still be denied generated copy - and because
+ * the assistant can never send, `ai.assist` alone grants no write path (§8).
+ */
+export function canUseAiAssist(role: Role | null): boolean {
+  return can(role, "ai.assist");
+}
+
+export function canUseAiAssistOn(
+  role: Role | null,
+  thread: Pick<ConversationThreadInfo, "type">,
+): boolean {
+  if (!canUseAiAssist(role)) return false;
+  // Internal notes exist only on public threads; refusing keeps the helper from
+  // inventing copy for a surface the customer never sees.
+  return thread.type === "public";
+}
+
+/**
+ * Resolving is only meaningful on a conversation that is still live. A resolved
+ * conversation is reopened instead, so the two paths never collide.
+ */
+export function canResolveStatus(role: Role | null, currentStatus: ConversationStatus): boolean {
+  return canResolveConversation(role) && currentStatus !== "resolved" && currentStatus !== "closed";
 }
 
 /** Only a public conversation can be moved into a direct message. */

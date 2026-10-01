@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Paperclip, Send, X } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useImperativeHandle, useState, type KeyboardEvent, type Ref } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +48,23 @@ export interface ComposerSendVariables {
   kind: "public" | "private" | "internal_note";
   body: string;
   attachments: readonly MessageAttachment[];
+  /**
+   * Identifies one send attempt. Generated once per attempt and reused on retry
+   * so a retried send cannot post the same message twice (§42).
+   */
+  clientRequestId: string;
+}
+
+/** Draft lifecycle events worth auditing; typing is not one of them. */
+export type ComposerDraftEvent =
+  | { readonly type: "adopted"; readonly body: string }
+  | { readonly type: "cleared" };
+
+export interface ResponseComposerHandle {
+  /** Replace the current draft, e.g. when AI copy is adopted. */
+  insertDraft: (body: string) => void;
+  /** The current draft text, so a caller can send it to the AI assistant. */
+  getDraft: () => string;
 }
 
 export interface ResponseComposerProps {
@@ -57,9 +74,32 @@ export interface ResponseComposerProps {
   onSend: (variables: ComposerSendVariables) => Promise<unknown>;
   /** Whether the signed-in role may send customer-facing replies and notes. */
   allowed: boolean;
+  /**
+   * Asked before a send that reaches the customer. Returning false cancels the
+   * send, which is how the workspace confirms irreversible actions (§42).
+   */
+  beforeSend?: (variables: ComposerSendVariables) => Promise<boolean> | boolean;
+  /** Notified when AI copy is adopted or a draft is cleared after sending. */
+  onDraftEvent?: (event: ComposerDraftEvent) => void;
+  /** Reports the current draft text so a caller can offer it to the assistant. */
+  onDraftChange?: (body: string) => void;
+  ref?: Ref<ResponseComposerHandle>;
 }
 
-export function ResponseComposer({ mode, onModeChange, onSend, allowed }: ResponseComposerProps) {
+function newRequestId(): string {
+  return `req_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+export function ResponseComposer({
+  mode,
+  onModeChange,
+  onSend,
+  allowed,
+  beforeSend,
+  onDraftEvent,
+  onDraftChange,
+  ref,
+}: ResponseComposerProps) {
   const [drafts, setDrafts] = useState<Record<ComposerMode, MessageDraft>>(() => ({
     public: emptyDraft("public"),
     private: emptyDraft("private"),
@@ -74,8 +114,27 @@ export function ResponseComposer({ mode, onModeChange, onSend, allowed }: Respon
   const validation = validateMessageBody(draft.body);
   const canSend = allowed && !sending && draftHasContent(draft) && validation.valid;
 
+  // The imperative handle lets the AI panel insert copy without the workspace
+  // owning the draft state, and read the draft back for rewrite actions.
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertDraft: (body: string) => {
+        setDrafts((previous) => ({
+          ...previous,
+          [mode]: { ...previous[mode], body },
+        }));
+        onDraftChange?.(body);
+        onDraftEvent?.({ type: "adopted", body });
+      },
+      getDraft: () => drafts[mode].body,
+    }),
+    [drafts, mode, onDraftChange, onDraftEvent],
+  );
+
   function patchDraft(patch: Partial<MessageDraft>) {
     setDrafts((previous) => ({ ...previous, [mode]: { ...previous[mode], ...patch } }));
+    if (patch.body !== undefined) onDraftChange?.(patch.body);
   }
 
   function addAttachment(attachment: MessageAttachment) {
@@ -98,6 +157,8 @@ export function ResponseComposer({ mode, onModeChange, onSend, allowed }: Respon
         [mode]: { ...previous[mode], body: "", attachments: [] },
       }));
       setAttempt(null);
+      onDraftChange?.("");
+      onDraftEvent?.({ type: "cleared" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The message could not be sent.");
     } finally {
@@ -105,7 +166,7 @@ export function ResponseComposer({ mode, onModeChange, onSend, allowed }: Respon
     }
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!canSend) {
       if (draft.body.trim() === "" && !draftHasContent(draft)) {
         setError("Write a message before sending.");
@@ -114,17 +175,26 @@ export function ResponseComposer({ mode, onModeChange, onSend, allowed }: Respon
       }
       return;
     }
-    void submit({
+
+    const variables: ComposerSendVariables = {
       kind: COMPOSER_MODE_TO_KIND[mode],
       body: draft.body.trim(),
       attachments: draft.attachments,
-    });
+      clientRequestId: newRequestId(),
+    };
+
+    if (beforeSend) {
+      const confirmed = await beforeSend(variables);
+      if (!confirmed) return;
+    }
+
+    await submit(variables);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      handleSend();
+      void handleSend();
     }
   }
 

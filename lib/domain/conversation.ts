@@ -274,6 +274,9 @@ export const AUDIT_EVENT_TYPES = [
   "moved_to_private",
   "read",
   "sla_paused",
+  "opened",
+  "draft_edited",
+  "resolved",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
@@ -292,6 +295,9 @@ export const AUDIT_EVENT_META: Record<AuditEventType, { label: string; tone: Ton
   moved_to_private: { label: "Moved to direct message", tone: "private" },
   read: { label: "Marked read", tone: "neutral" },
   sla_paused: { label: "SLA paused", tone: "warning" },
+  opened: { label: "Opened by agent", tone: "info" },
+  draft_edited: { label: "Draft edited", tone: "ai" },
+  resolved: { label: "Resolved", tone: "success" },
 };
 
 export interface AuditEvent {
@@ -450,4 +456,45 @@ export interface ConversationMessagesResponse {
 
 export interface ConversationAuditResponse {
   readonly events: readonly AuditEventDto[];
+}
+
+/* -------------------------------------------------------------------------
+ * Resolution & reopening
+ * ---------------------------------------------------------------------- */
+
+/** Statuses an agent may set directly on a conversation. */
+export const RESOLVABLE_STATUSES = ["open", "awaiting_customer", "resolved"] as const;
+
+export type ResolvableStatus = (typeof RESOLVABLE_STATUSES)[number];
+
+/**
+ * Shown verbatim before an irreversible action. Resolving closes the
+ * conversation for the agent, so the copy says what will happen to the thread
+ * and how to get it back.
+ */
+export const RESOLVE_CONFIRMATION =
+  "This resolves the conversation and clears it from your active queue. The customer sees no notification, and you can reopen it at any time from the status menu.";
+
+export const RESOLVE_NOTE_MAX = 1000;
+
+export interface ResolveRequest {
+  readonly note: string;
+}
+
+export function summariseResolution(note: string): string {
+  const trimmed = note.trim();
+  if (trimmed.length === 0) {
+    return "Conversation resolved.";
+  }
+  return `Conversation resolved: ${trimmed}`;
+}
+
+export function summariseReopen(reason: string): string {
+  const trimmed = reason.trim();
+  return trimmed.length === 0 ? "Conversation reopened." : `Conversation reopened: ${trimmed}`;
+}
+
+export interface ConversationStatusResponse {
+  readonly conversation: InboxConversationDto;
+  readonly event: AuditEventDto;
 }

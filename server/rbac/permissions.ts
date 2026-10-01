@@ -19,6 +19,8 @@ export const PERMISSIONS = [
   "conversation.pause",
   "conversation.resolve",
   "conversation.transfer",
+  // AI assistance (drafting only - it never sends)
+  "ai.assist",
   // Channels & interactions
   "channel.view",
   "interaction.view",
@@ -55,6 +57,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "conversation.pause": "Pause SLA-tracking on a conversation",
   "conversation.resolve": "Resolve conversations",
   "conversation.transfer": "Transfer conversations",
+  "ai.assist": "Use AI drafting assistance",
   "channel.view": "View channels",
   "interaction.view": "View public posts, comments, DMs and mentions",
   "case.view": "View cases",
@@ -84,6 +87,8 @@ export const rolePermissionSets: Record<Role, ReadonlySet<Permission>> = {
     "conversation.pause",
     "conversation.resolve",
     "conversation.transfer",
+    // Drafting assistance: the agent always reviews and sends what it produces.
+    "ai.assist",
     // Public context arrives with the data phases; permissions already grant it.
     "channel.view",
     "interaction.view",
