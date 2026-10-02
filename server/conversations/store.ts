@@ -980,6 +980,7 @@ export function buildConversationStore(): ConversationStore {
 
     const created = inbox.create({
       id: createdId,
+      interactionId: `INT-SOC-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-DM${String(dmCounter).padStart(5, "0")}`,
       channel: origin.channel,
       customer: origin.customer,
       receivedAt: now,
@@ -993,7 +994,7 @@ export function buildConversationStore(): ConversationStore {
       slaPaused: false,
       needsReview: false,
       assignedTo: origin.assignedTo,
-      unread: false,
+      unread: true,
     });
 
     links.set(id, {

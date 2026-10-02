@@ -117,7 +117,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // Work – agent-facing
   {
     id: "dashboard",
-    label: "Agent workspace",
+    label: "Workspace",
     helper: "Today, your queue and your response metrics",
     href: "/dashboard",
     icon: Gauge,
@@ -249,7 +249,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // Oversight – supervisor + admin
   {
     id: "overview",
-    label: "Overview",
+    label: "Supervisor workspace",
     href: "/supervisor",
     icon: MonitorCheck,
     section: "oversight",

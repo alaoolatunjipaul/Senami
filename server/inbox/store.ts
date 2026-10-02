@@ -277,8 +277,11 @@ function buildConversations(now: Date, rng: () => number): readonly InboxConvers
       assignedTo = rng() < 0.45 ? pick(AGENTS, rng) : null;
     }
 
+    const interactionId = `INT-SOC-${receivedAt.getFullYear()}${String(receivedAt.getMonth() + 1).padStart(2, "0")}${String(receivedAt.getDate()).padStart(2, "0")}-${String(i + 1).padStart(5, "0")}`;
+
     conversations.push({
       id: `cv_${String(i).padStart(4, "0")}`,
+      interactionId,
       channel,
       customer,
       receivedAt,

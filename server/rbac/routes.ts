@@ -50,11 +50,14 @@ export function canAccessRoute(role: Role | null, pathname: string): boolean {
 }
 
 /** Sensible home for a role when a route was blocked. */
-export function homePathForRole(role: Role | null): "/dashboard" | "/inbox" | "/login" {
+export function homePathForRole(role: Role | null): string {
   if (role === null) return "/login";
   if (!can(role, "inbox.view")) return "/login";
-  // Agents work from their own workspace; everyone else lands on the queue.
-  return role === "AGENT" ? "/dashboard" : "/inbox";
+  if (role === "AGENT") return "/dashboard";
+  if (role === "SUPERVISOR") return "/supervisor";
+  if (role === "QA") return "/qa";
+  if (role === "ADMIN") return "/admin";
+  return "/dashboard";
 }
 
 /** Extracted so middleware shares the exact list with tests. */

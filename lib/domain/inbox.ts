@@ -1,4 +1,5 @@
 import { CHANNELS, type ChannelId } from "@/lib/config";
+import { channelLabel } from "@/lib/domain/channel-visuals";
 import { MONTH_MS, WEEK_MS } from "@/lib/format";
 import {
   evaluateSla,
@@ -46,6 +47,7 @@ export interface InboxAssignee {
 
 export interface InboxConversation {
   readonly id: string;
+  readonly interactionId?: string;
   readonly channel: ChannelId;
   readonly customer: InboxCustomer;
   /** When the customer first reached out; the SLA clock starts here. */
@@ -86,15 +88,21 @@ export const INBOX_VIEW_LABELS: Record<InboxView, string> = {
  * Filters
  * ---------------------------------------------------------------------- */
 
-export const DATE_PRESETS = ["any", "today", "week", "month", "older_month"] as const;
+export const DATE_PRESETS = ["any", "today", "yesterday", "week", "thisWeek", "lastWeek", "month", "thisMonth", "lastMonth", "older_month", "custom"] as const;
 export type DatePreset = (typeof DATE_PRESETS)[number];
 
 export const DATE_PRESET_LABELS: Record<DatePreset, string> = {
   any: "Any time",
   today: "Today",
+  yesterday: "Yesterday",
   week: "Last 7 days",
+  thisWeek: "This week",
+  lastWeek: "Last week",
   month: "Last 30 days",
+  thisMonth: "This month",
+  lastMonth: "Last month",
   older_month: "Older than 30 days",
+  custom: "Custom range",
 };
 
 export interface InboxQuery {
@@ -252,22 +260,60 @@ export function conversationContainsText(item: InboxConversation, term: string):
  * rather than each re-deriving it.
  */
 export function withinDatePreset(preset: DatePreset, at: Date, now: Date): boolean {
-  switch (preset) {
-    case "any":
-      return true;
-    case "today": {
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      return at.getTime() >= startOfDay.getTime();
+    switch (preset) {
+      case "any":
+        return true;
+      case "today": {
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setDate(endOfDay.getDate() + 1);
+        return at.getTime() >= startOfDay.getTime() && at.getTime() < endOfDay.getTime();
+      }
+      case "yesterday": {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - 1);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        return at.getTime() >= start.getTime() && at.getTime() < end.getTime();
+      }
+      case "thisWeek": {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const day = start.getDay();
+        const diff = start.getDate() - day;
+        start.setDate(diff);
+        return at.getTime() >= start.getTime();
+      }
+      case "lastWeek": {
+        const end = new Date(now);
+        end.setHours(0, 0, 0, 0);
+        const day = end.getDay();
+        end.setDate(end.getDate() - day);
+        const start = new Date(end);
+        start.setDate(start.getDate() - 7);
+        return at.getTime() >= start.getTime() && at.getTime() < end.getTime();
+      }
+      case "thisMonth": {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        return at.getTime() >= start.getTime();
+      }
+      case "lastMonth": {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 1);
+        return at.getTime() >= start.getTime() && at.getTime() < end.getTime();
+      }
+      case "week":
+        return at.getTime() >= now.getTime() - WEEK_MS;
+      case "month":
+        return at.getTime() >= now.getTime() - MONTH_MS;
+      case "older_month":
+        return at.getTime() < now.getTime() - MONTH_MS;
+      case "custom":
+        return true;
     }
-    case "week":
-      return at.getTime() >= now.getTime() - WEEK_MS;
-    case "month":
-      return at.getTime() >= now.getTime() - MONTH_MS;
-    case "older_month":
-      return at.getTime() < now.getTime() - MONTH_MS;
   }
-}
 
 /**
  * The one predicate the whole inbox relies on. Every dimension is applied
@@ -333,7 +379,9 @@ export function compareByRecency(a: InboxConversation, b: InboxConversation): nu
 
 export interface InboxConversationDto {
   readonly id: string;
+  readonly interactionId?: string;
   readonly channel: ChannelId;
+  readonly channelLabel?: string;
   readonly customer: InboxCustomer;
   readonly receivedAt: string;
   readonly lastMessageAt: string;
@@ -343,6 +391,7 @@ export interface InboxConversationDto {
   readonly sentiment: Sentiment;
   readonly priority: Priority;
   readonly status: ConversationStatus;
+  readonly sla?: SlaEvaluation;
   readonly slaPaused: boolean;
   readonly needsReview: boolean;
   readonly assignedTo: InboxAssignee | null;
@@ -352,7 +401,9 @@ export interface InboxConversationDto {
 export function toInboxConversationDto(item: InboxConversation): InboxConversationDto {
   return {
     id: item.id,
+    interactionId: item.interactionId ?? `INT-${item.id}`,
     channel: item.channel,
+    channelLabel: channelLabel(item.channel),
     customer: item.customer,
     receivedAt: item.receivedAt.toISOString(),
     lastMessageAt: item.lastMessageAt.toISOString(),
@@ -362,6 +413,7 @@ export function toInboxConversationDto(item: InboxConversation): InboxConversati
     sentiment: item.sentiment,
     priority: item.priority,
     status: item.status,
+    sla: evaluateSla({ policy: { firstResponseMinutes: 15, warningMinutes: 5 }, startedAt: item.receivedAt, firstRespondedAt: item.respondedAt }),
     slaPaused: item.slaPaused,
     needsReview: item.needsReview,
     assignedTo: item.assignedTo,
