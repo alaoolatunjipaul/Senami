@@ -35,6 +35,14 @@ export const PERMISSIONS = [
   "supervisor.escalations.view",
   "supervisor.sla.view",
   "supervisor.ai.view",
+  // Supervisor operational authority (Phase 9)
+  "supervisor.assign",
+  "supervisor.priority.change",
+  "supervisor.escalation.resolve",
+  "supervisor.qa.review",
+  "supervisor.performance.view",
+  "supervisor.audit.view",
+  "supervisor.permissions.view",
   // Quality assurance
   "qa.view",
   "qa.review",
@@ -68,6 +76,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "supervisor.escalations.view": "View escalations",
   "supervisor.sla.view": "View SLA overview",
   "supervisor.ai.view": "View AI usage",
+  "supervisor.assign": "Assign and reassign team conversations",
+  "supervisor.priority.change": "Change conversation priority",
+  "supervisor.escalation.resolve": "Deal with escalated conversations",
+  "supervisor.qa.review": "Review interactions and submit QA reviews",
+  "supervisor.performance.view": "View team performance",
+  "supervisor.audit.view": "Read the team audit trail",
+  "supervisor.permissions.view": "View the permissions held by your role",
   "qa.view": "View the QA workspace",
   "qa.review": "Score and review conversations",
   "users.manage": "Manage users and teams",
@@ -108,6 +123,16 @@ export const rolePermissionSets: Record<Role, ReadonlySet<Permission>> = {
     "supervisor.escalations.view",
     "supervisor.sla.view",
     "supervisor.ai.view",
+    // Operational authority over the team. Deliberately narrow: a supervisor
+    // reassigns, re-prioritises, reviews and audits, but holds no administrative
+    // control over the platform itself (§25).
+    "supervisor.assign",
+    "supervisor.priority.change",
+    "supervisor.escalation.resolve",
+    "supervisor.qa.review",
+    "supervisor.performance.view",
+    "supervisor.audit.view",
+    "supervisor.permissions.view",
     "qa.view",
   ]),
   QA: new Set([

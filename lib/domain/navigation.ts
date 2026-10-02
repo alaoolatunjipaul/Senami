@@ -11,6 +11,7 @@ import {
   GitPullRequestArrow,
   HelpCircle,
   Inbox,
+  KeyRound,
   Mail,
   MessageSquareText,
   MessagesSquare,
@@ -80,6 +81,10 @@ export type NavItemId =
   | "slaPanel"
   | "aiUsage"
   | "reports"
+  | "supervisorQa"
+  | "teamPerformance"
+  | "supervisorAudit"
+  | "supervisorPermissions"
   | "qaReviews"
   | "qaScoring"
   | "qaCalibration"
@@ -279,6 +284,44 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "SLA overview",
     href: "/supervisor/sla",
     icon: Timer,
+    section: "oversight",
+    roles: ["SUPERVISOR", "ADMIN"],
+  },
+  // Quality and governance for the supervised team. The dedicated QA analyst
+  // workspace (/qa) is a separate surface and stays where it is.
+  {
+    id: "supervisorQa",
+    label: "QA review",
+    helper: "Interactions awaiting a quality decision",
+    href: "/supervisor/qa",
+    icon: ClipboardCheck,
+    section: "oversight",
+    roles: ["SUPERVISOR", "ADMIN"],
+  },
+  {
+    id: "teamPerformance",
+    label: "Team performance",
+    helper: "Handling, response time and SLA compliance for the team",
+    href: "/supervisor/performance",
+    icon: BarChart3,
+    section: "oversight",
+    roles: ["SUPERVISOR", "ADMIN"],
+  },
+  {
+    id: "supervisorAudit",
+    label: "Team audit trail",
+    helper: "Every supervisory action taken on the team, newest first",
+    href: "/supervisor/audit",
+    icon: ShieldCheck,
+    section: "oversight",
+    roles: ["SUPERVISOR", "ADMIN"],
+  },
+  {
+    id: "supervisorPermissions",
+    label: "My permissions",
+    helper: "What this role may and may not do",
+    href: "/supervisor/permissions",
+    icon: KeyRound,
     section: "oversight",
     roles: ["SUPERVISOR", "ADMIN"],
   },

@@ -13,11 +13,17 @@ import type { Role } from "@/lib/domain/user";
 
 const ROUTE_PERMISSIONS: ReadonlyArray<readonly [prefix: string, permission: Permission]> = [
   ["/admin", "users.manage"],
+  // Supervisor child routes are matched before the "/supervisor" catch-all below,
+  // so each is guarded by its own permission rather than the overview's.
   ["/supervisor/ai", "supervisor.ai.view"],
   ["/supervisor/sla", "supervisor.sla.view"],
   ["/supervisor/escalations", "supervisor.escalations.view"],
   ["/supervisor/team", "supervisor.team.view"],
   ["/supervisor/queue", "supervisor.queue.view"],
+  ["/supervisor/qa", "supervisor.qa.review"],
+  ["/supervisor/performance", "supervisor.performance.view"],
+  ["/supervisor/audit", "supervisor.audit.view"],
+  ["/supervisor/permissions", "supervisor.permissions.view"],
   ["/supervisor", "report.view"],
   ["/qa", "qa.view"],
   ["/performance", "performance.view"],

@@ -246,7 +246,12 @@ export function conversationContainsText(item: InboxConversation, term: string):
   return haystack.includes(term);
 }
 
-function withinDatePreset(preset: DatePreset, at: Date, now: Date): boolean {
+/**
+ * Whether a timestamp falls inside a date preset. Exported so other consoles
+ * (supervisor audit, QA) share the one definition of "today" and "last 7 days"
+ * rather than each re-deriving it.
+ */
+export function withinDatePreset(preset: DatePreset, at: Date, now: Date): boolean {
   switch (preset) {
     case "any":
       return true;

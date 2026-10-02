@@ -277,6 +277,9 @@ export const AUDIT_EVENT_TYPES = [
   "opened",
   "draft_edited",
   "resolved",
+  "priority_changed",
+  "escalation_resolved",
+  "qa_reviewed",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
@@ -298,6 +301,9 @@ export const AUDIT_EVENT_META: Record<AuditEventType, { label: string; tone: Ton
   opened: { label: "Opened by agent", tone: "info" },
   draft_edited: { label: "Draft edited", tone: "ai" },
   resolved: { label: "Resolved", tone: "success" },
+  priority_changed: { label: "Priority changed", tone: "warning" },
+  escalation_resolved: { label: "Escalation resolved", tone: "success" },
+  qa_reviewed: { label: "QA review completed", tone: "primary" },
 };
 
 export interface AuditEvent {

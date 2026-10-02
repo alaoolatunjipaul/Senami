@@ -74,12 +74,17 @@ export interface AssignDecision {
  * Assignment rules:
  *  - agents may claim unassigned conversations and change their own assignment;
  *  - reassigning a conversation that belongs to someone else needs supervision.
+ *
+ * Team-wide authority comes from `supervisor.assign` specifically, not from the
+ * ability to *view* the team. Reading a workload chart must never imply the right
+ * to take work from an agent.
  */
 export function canAssignConversation(
   role: Role | null,
   input: { currentAssigneeId: string | null; actorId: string },
 ): AssignDecision {
-  const mayTransfer = can(role, "conversation.transfer") || can(role, "supervisor.team.view");
+  const isSupervisor = can(role, "supervisor.assign");
+  const mayTransfer = can(role, "conversation.transfer") || isSupervisor;
   if (!mayTransfer) {
     return { allowed: false, reason: "Your role cannot assign conversations." };
   }
@@ -88,7 +93,7 @@ export function canAssignConversation(
     return { allowed: true };
   }
 
-  if (can(role, "supervisor.team.view")) {
+  if (isSupervisor) {
     return { allowed: true };
   }
 

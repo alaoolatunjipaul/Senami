@@ -18,7 +18,7 @@ import {
   type ResolvableStatus,
 } from "@/lib/domain/conversation";
 import { DEFAULT_INBOX_QUERY, type InboxAssignee, type InboxConversation } from "@/lib/domain/inbox";
-import { INTENT_META, type MessageKind } from "@/lib/domain/taxonomy";
+import { INTENT_META, PRIORITY_META, type MessageKind, type Priority } from "@/lib/domain/taxonomy";
 import { MINUTE_MS } from "@/lib/format";
 import { demoInboxStore, resetDemoInboxStore } from "@/server/inbox/store";
 
@@ -132,6 +132,12 @@ export interface ResolveInput {
   readonly actor: string;
 }
 
+export interface PriorityChangeInput {
+  readonly priority: Priority;
+  readonly reason: string;
+  readonly actor: string;
+}
+
 export interface StatusChangeInput {
   readonly status: ResolvableStatus;
   readonly reason: string;
@@ -193,6 +199,11 @@ export interface StatusChangeResult {
   readonly systemMessage: ConversationMessage;
 }
 
+export interface PriorityChangeResult {
+  readonly conversation: InboxConversation;
+  readonly event: AuditEvent;
+}
+
 export interface AssignResult {
   readonly conversation: InboxConversation;
   readonly event: AuditEvent;
@@ -201,6 +212,35 @@ export interface AssignResult {
 export interface EscalateResult {
   readonly conversation: InboxConversation;
   readonly message: ConversationMessage;
+  readonly event: AuditEvent;
+}
+
+export type EscalationOutcome = "resolved" | "reassigned" | "dismissed";
+
+const ESCALATION_OUTCOME_SUMMARY: Record<EscalationOutcome, string> = {
+  resolved: "Escalation resolved.",
+  reassigned: "Escalation resolved by reassignment.",
+  dismissed: "Escalation dismissed.",
+};
+
+function escalationOutcomeSummary(outcome: EscalationOutcome): string {
+  return ESCALATION_OUTCOME_SUMMARY[outcome];
+}
+
+export interface ClearEscalationInput {
+  readonly outcome: EscalationOutcome;
+  readonly note: string;
+  readonly actor: string;
+}
+
+export interface ClearQaReviewInput {
+  readonly outcome: "approved" | "changes_requested";
+  readonly note: string;
+  readonly actor: string;
+}
+
+export interface SupervisorActionResult {
+  readonly conversation: InboxConversation;
   readonly event: AuditEvent;
 }
 
@@ -222,6 +262,21 @@ export interface ConversationStore {
   recordAiSuggestion(id: string, input: AiSuggestionInput, now?: Date): AiSuggestionResult | null;
   resolve(id: string, input: ResolveInput, now?: Date): StatusChangeResult | null;
   setStatus(id: string, input: StatusChangeInput, now?: Date): StatusChangeResult | null;
+  /**
+   * Raise or lower a conversation's priority (supervisor action, §11). Returns
+   * null when the priority is unchanged, so a no-op never fabricates an event.
+   */
+  changePriority(id: string, input: PriorityChangeInput, now?: Date): PriorityChangeResult | null;
+  /**
+   * Clear an escalation by returning the conversation to the live queue.
+   *
+   * Deliberately *not* a resolution: resolving a conversation is a separate
+   * authority (`conversation.resolve`) that a supervisor does not hold. Dealing
+   * with an escalation only decides it no longer needs supervisor attention.
+   */
+  clearEscalation(id: string, input: ClearEscalationInput, now?: Date): SupervisorActionResult | null;
+  /** Record a QA decision and clear the review flag when the review is approved. */
+  clearQaReview(id: string, input: ClearQaReviewInput, now?: Date): SupervisorActionResult | null;
   reset(now?: Date): void;
 }
 
@@ -740,6 +795,85 @@ export function buildConversationStore(): ConversationStore {
     return { conversation: updated, event, systemMessage };
   }
 
+  function changePriority(
+    id: string,
+    input: PriorityChangeInput,
+    now: Date = new Date(),
+  ): PriorityChangeResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+    if (conversation.priority === input.priority) return null;
+
+    const previous = conversation.priority;
+    const updated = inbox.update(id, { priority: input.priority });
+    if (!updated) return null;
+
+    const state = ensureThread(id);
+    const reason = input.reason.trim();
+    const summary = `Priority changed from ${PRIORITY_META[previous].label} to ${
+      PRIORITY_META[input.priority].label
+    }.${reason.length > 0 ? ` ${reason}` : ""}`;
+
+    const event = createAudit(id, "priority_changed", summary, input.actor, now, {
+      previousPriority: previous,
+      priority: input.priority,
+      reason: reason.length > 0 ? reason : null,
+    });
+    state.audit.push(event);
+
+    return { conversation: updated, event };
+  }
+
+  function clearEscalation(
+    id: string,
+    input: ClearEscalationInput,
+    now: Date = new Date(),
+  ): SupervisorActionResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+    if (conversation.status !== "escalated") return null;
+
+    const updated = inbox.update(id, { status: "open" });
+    if (!updated) return null;
+
+    const note = input.note.trim();
+    const summary = `${escalationOutcomeSummary(input.outcome)}${note.length > 0 ? ` ${note}` : ""}`;
+
+    const event = createAudit(id, "escalation_resolved", summary, input.actor, now, {
+      outcome: input.outcome,
+      previousStatus: conversation.status,
+      note: note.length > 0 ? note : null,
+    });
+    ensureThread(id).audit.push(event);
+
+    return { conversation: updated, event };
+  }
+
+  function clearQaReview(
+    id: string,
+    input: ClearQaReviewInput,
+    now: Date = new Date(),
+  ): SupervisorActionResult | null {
+    const conversation = inbox.getById(id);
+    if (!conversation) return null;
+    if (!conversation.needsReview) return null;
+
+    // A request for changes keeps the item on the board: the agent still owes a
+    // revision, so the flag stays until the conversation is approved.
+    const updated = inbox.update(id, { needsReview: input.outcome !== "approved" });
+    if (!updated) return null;
+
+    const note = input.note.trim();
+    const summary = input.outcome === "approved" ? "QA review approved." : "QA review: changes requested.";
+    const event = createAudit(id, "qa_reviewed", note.length > 0 ? `${summary} ${note}` : summary, input.actor, now, {
+      outcome: input.outcome,
+      note: note.length > 0 ? note : null,
+    });
+    ensureThread(id).audit.push(event);
+
+    return { conversation: updated, event };
+  }
+
   function assign(id: string, input: AssignInput, now: Date = new Date()): AssignResult | null {
     const conversation = inbox.getById(id);
     if (!conversation) return null;
@@ -960,6 +1094,9 @@ export function buildConversationStore(): ConversationStore {
     recordAiSuggestion,
     resolve,
     setStatus,
+    changePriority,
+    clearEscalation,
+    clearQaReview,
     reset,
   };
 }
