@@ -15,7 +15,10 @@ import {
 } from "@/lib/domain/ai";
 import type { InboxConversation } from "@/lib/domain/inbox";
 import { slaEvaluationOf } from "@/lib/domain/inbox";
+import { canAssistIntent, canUseAiAction } from "@/lib/domain/ai-governance";
 import { demoConversationStore } from "@/server/conversations/store";
+import { currentAiPolicy } from "@/server/governance/ai-policy-store";
+import { governDraft, type AiGovernanceEnvelope } from "@/server/governance/ai-service";
 
 /**
  * AI assistance service.
@@ -43,15 +46,31 @@ export interface AiSuggestionResponse {
   /** Echoed so the client can render a note about what happened. */
   readonly disposition: "draft_only";
   readonly notice: string;
+  /** Grounding, provenance and policy facts for this specific draft. */
+  readonly governance: AiGovernanceEnvelope;
 }
 
 export const AI_NOT_SENT_NOTICE =
   "This is a draft. Nothing has been sent - edit it in the composer and send it yourself.";
 
+/** Extra notice when the grounding state blocks an unedited send. */
+export function governanceNotice(envelope: AiGovernanceEnvelope): string | null {
+  if (envelope.canSendUnchanged) return null;
+  return envelope.state === "human_approval_required"
+    ? "A supervisor must approve this before it goes to the customer."
+    : envelope.guidance;
+}
+
 export class AiActionError extends Error {
   override readonly name = "AiActionError";
   constructor(
-    readonly code: "unknown_action" | "input_required" | "input_too_long" | "output_too_long",
+    readonly code:
+      | "unknown_action"
+      | "input_required"
+      | "input_too_long"
+      | "output_too_long"
+      | "capability_disabled"
+      | "intent_blocked",
     message: string,
   ) {
     super(message);
@@ -102,6 +121,16 @@ export function runAssistant(request: AiSuggestionRequest): AiSuggestionResponse
   }
   const action = request.action;
 
+  const policy = currentAiPolicy();
+  const intentDecision = canAssistIntent(policy, conversation.intent);
+  if (!intentDecision.allowed) {
+    throw new AiActionError("intent_blocked", intentDecision.reason);
+  }
+  const actionDecision = canUseAiAction(policy, action);
+  if (!actionDecision.allowed) {
+    throw new AiActionError("capability_disabled", actionDecision.reason);
+  }
+
   const input = request.input?.trim() ?? "";
   if (input.length > AI_INPUT_MAX) {
     throw new AiActionError(
@@ -122,6 +151,18 @@ export function runAssistant(request: AiSuggestionRequest): AiSuggestionResponse
     throw new AiActionError("output_too_long", "The assistant produced too much text to use as a draft.");
   }
 
+  const { envelope } = governDraft(
+    {
+      action,
+      intent: conversation.intent,
+      content: result.content,
+      confidence: result.confidence,
+      escalated: conversation.status === "escalated",
+    },
+    policy,
+    now,
+  );
+
   const seed = hashString(`${conversation.id}:${action}:${input}:${now.toISOString()}`);
   const suggestion: AiSuggestion = {
     id: `sug_${conversation.id}_${String(seed % 100000).padStart(5, "0")}`,
@@ -136,13 +177,26 @@ export function runAssistant(request: AiSuggestionRequest): AiSuggestionResponse
 
   demoConversationStore().recordAiSuggestion(
     conversation.id,
-    { actor: request.actor, action, suggestionId: suggestion.id },
+    {
+      actor: request.actor,
+      action,
+      suggestionId: suggestion.id,
+      grounding: {
+        state: envelope.state,
+        band: envelope.band,
+        sourceIds: envelope.sources.map((source) => source.id),
+        policyVersion: envelope.policyVersion,
+        requiresApproval: envelope.requiresApproval,
+      },
+    },
     now,
   );
 
+  const notice = governanceNotice(envelope);
   return {
     suggestion: toAiSuggestionDto(suggestion),
     disposition: "draft_only",
-    notice: AI_NOT_SENT_NOTICE,
+    notice: notice === null ? AI_NOT_SENT_NOTICE : `${AI_NOT_SENT_NOTICE} ${notice}`,
+    governance: envelope,
   };
 }

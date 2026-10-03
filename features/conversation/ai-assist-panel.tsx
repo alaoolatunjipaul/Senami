@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/modal";
 import { AI_ACTIONS, AI_ACTION_META, type AiAction, type AiSuggestionDto } from "@/lib/domain/ai";
+import type { AiGovernanceEnvelope } from "@/lib/domain/ai-governance";
+import { AiGroundingCard } from "@/features/conversation/ai-grounding-card";
 
 /**
  * AI assistance panel (§8).
@@ -23,6 +25,8 @@ export interface AiAssistPanelProps {
   /** The current composer draft, used by the rewrite-style actions. */
   draft: string;
   suggestion: AiSuggestionDto | null;
+  /** Grounding, provenance and policy facts for the current suggestion. */
+  governance: AiGovernanceEnvelope | null;
   pending: boolean;
   error: string | null;
   /** Adopts a draft-producing suggestion into the composer. */
@@ -39,6 +43,7 @@ export function AiAssistPanel({
   onOpenChange,
   draft,
   suggestion,
+  governance,
   pending,
   error,
   onAdopt,
@@ -144,7 +149,7 @@ export function AiAssistPanel({
                 {suggestion.title}
               </p>
               <Badge tone="ai" size="sm">
-                {Math.round(suggestion.confidence * 100)}%
+                {AI_ACTION_META[suggestion.action].label}
               </Badge>
             </div>
             <p className="text-ink-secondary mt-2 text-xs leading-relaxed whitespace-pre-wrap">
@@ -153,6 +158,7 @@ export function AiAssistPanel({
             <p className="text-ink-subtle mt-2 text-[11px]">
               Draft only · editable · not sent
             </p>
+            {governance ? <AiGroundingCard governance={governance} /> : null}
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {AI_ACTION_META[suggestion.action].producesDraft ? (
                 <Button size="sm" onClick={() => onAdopt(suggestion.content)}>

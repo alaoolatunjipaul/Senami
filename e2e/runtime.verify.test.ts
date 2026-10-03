@@ -173,3 +173,65 @@ describe("runtime: role workspace labels", () => {
     expect(adminPage.body).toContain("Admin workspace");
   }, 60_000);
 });
+
+describe("runtime: governed assistant drafts", () => {
+  it("returns grounding and provenance, and never a sent message", async () => {
+    const agent = await cookieFor("AGENT");
+    const list = await json("/api/conversations?pageSize=100", agent);
+
+    // Pick an interaction whose intent the knowledge base actually covers, so a
+    // grounded state is a real expectation rather than a coin flip.
+    expect(list.status, JSON.stringify(list.body)).toBe(200);
+    expect(Array.isArray(list.body.items)).toBe(true);
+    const covered = list.body.items.find((item: any) => item.intent === "transfer");
+    expect(covered).toBeDefined();
+
+    const response = await fetch(`${BASE}/api/conversations/${covered.id}/ai`, {
+      method: "POST",
+      headers: { cookie: agent, "content-type": "application/json" },
+      body: JSON.stringify({ action: "suggest" }),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    // The draft-only contract survives the HTTP boundary.
+    expect(body.disposition).toBe("draft_only");
+    expect(body.suggestion.sent).toBe(false);
+    expect(body.notice).toMatch(/Nothing has been sent/);
+
+    // Governance arrived intact and is grounded in a real article.
+    const governance = body.governance;
+    expect(governance).toBeTruthy();
+    expect(governance.model).toBe("senami-assistant");
+    expect(governance.policyVersion).toBeTruthy();
+    expect(["grounded", "needs_verification", "low_confidence"]).toContain(governance.state);
+    expect(governance.sources.length).toBeGreaterThan(0);
+    expect(governance.sources[0].version).not.toBeNull();
+    expect(governance.sources[0].reviewedAt).not.toBeNull();
+    expect(governance.conditions.length).toBeGreaterThan(0);
+
+    // No reasoning ever crosses the wire.
+    expect(JSON.stringify(body)).not.toMatch(/chainOfThought|reasoning|thoughts/i);
+  }, 60_000);
+
+  it("records the grounding facts in the audit trail", async () => {
+    const agent = await cookieFor("AGENT");
+    const list = await json("/api/conversations?pageSize=100", agent);
+    const covered = list.body.items.find((item: any) => item.intent === "card_issue");
+    expect(covered).toBeDefined();
+
+    await fetch(`${BASE}/api/conversations/${covered.id}/ai`, {
+      method: "POST",
+      headers: { cookie: agent, "content-type": "application/json" },
+      body: JSON.stringify({ action: "summarize" }),
+    });
+
+    const audit = await json(`/api/conversations/${covered.id}/audit`, agent);
+    const drafted = audit.body.events.find((event: any) => event.type === "ai_suggested");
+    expect(drafted).toBeDefined();
+    expect(drafted.summary).toMatch(/Grounding:/);
+    expect(drafted.detail.groundingState).toBeTruthy();
+    expect(drafted.detail.confidenceBand).toBeTruthy();
+    expect(drafted.detail.sent).toBe(false);
+  }, 60_000);
+});

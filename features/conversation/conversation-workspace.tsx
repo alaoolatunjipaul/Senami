@@ -38,6 +38,7 @@ import {
 } from "@/features/conversation/use-conversation";
 import { useSession } from "@/features/shell/session-context";
 import type { AiAction, AiSuggestionDto } from "@/lib/domain/ai";
+import type { AiGovernanceEnvelope } from "@/lib/domain/ai-governance";
 import { COMPOSER_MODE_META, type ComposerMode } from "@/lib/domain/conversation";
 import type { InboxConversationDto } from "@/lib/domain/inbox";
 import { canAssignConversation, canUseAiAssist, canUseAiAssistOn } from "@/server/conversations/policy";
@@ -100,6 +101,7 @@ export function ConversationWorkspace({
   const [suggestionState, setSuggestionState] = useState<{
     conversationId: string;
     suggestion: AiSuggestionDto;
+    governance: AiGovernanceEnvelope;
   } | null>(null);
   const [draftText, setDraftText] = useState("");
 
@@ -148,6 +150,12 @@ export function ConversationWorkspace({
       ? suggestionState.suggestion
       : null;
 
+  // Kept beside the suggestion so the two cannot describe different drafts.
+  const aiGovernance =
+    suggestionState !== null && suggestionState.conversationId === conversationId
+      ? suggestionState.governance
+      : null;
+
   const confirmSend = useCallback((variables: ComposerSendVariables) => {
     const mode = variables.kind as ComposerMode;
     if (!COMPOSER_MODE_META[mode].customerFacing) return Promise.resolve(true);
@@ -183,7 +191,11 @@ export function ConversationWorkspace({
         { action, input },
         {
           onSuccess: (result) =>
-            setSuggestionState({ conversationId, suggestion: result.suggestion }),
+            setSuggestionState({
+              conversationId,
+              suggestion: result.suggestion,
+              governance: result.governance,
+            }),
         },
       );
     },
@@ -322,6 +334,7 @@ export function ConversationWorkspace({
         onOpenChange={setAiOpen}
         draft={draftText}
         suggestion={suggestion}
+        governance={aiGovernance}
         pending={ai.isPending}
         error={ai.isError ? (ai.error as Error).message : null}
         onAdopt={adoptSuggestion}

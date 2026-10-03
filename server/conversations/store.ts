@@ -126,6 +126,19 @@ export interface AiSuggestionInput {
   readonly actor: string;
   readonly action: string;
   readonly suggestionId: string;
+  /**
+   * Governance facts recorded with the draft (Phase 10, 27). Optional so older
+   * callers still record a suggestion, but the assistant always supplies them:
+   * an audit entry that cannot say how a reply was grounded is not much use to
+   * a supervisor or an auditor.
+   */
+  readonly grounding?: {
+    readonly state: string;
+    readonly band: string;
+    readonly sourceIds: readonly string[];
+    readonly policyVersion: string;
+    readonly requiresApproval: boolean;
+  };
 }
 
 export interface ResolveInput {
@@ -724,13 +737,31 @@ export function buildConversationStore(): ConversationStore {
     const conversation = inbox.getById(id);
     if (!conversation) return null;
 
+    const groundingNote = input.grounding
+      ? ` Grounding: ${input.grounding.state} (${input.grounding.band} confidence).`
+      : "";
     const event = createAudit(
       id,
       "ai_suggested",
-      `${AUDIT_EVENT_META.ai_suggested.label} (${input.action}). Draft only - not sent.`,
+      `${AUDIT_EVENT_META.ai_suggested.label} (${input.action}). Draft only - not sent.${groundingNote}`,
       input.actor,
       now,
-      { action: input.action, suggestionId: input.suggestionId, sent: false },
+      {
+        action: input.action,
+        suggestionId: input.suggestionId,
+        sent: false,
+        ...(input.grounding
+          ? {
+              groundingState: input.grounding.state,
+              confidenceBand: input.grounding.band,
+              // Flat scalars only: the audit detail is a scalar record.
+              sourceIds: input.grounding.sourceIds.join(","),
+              sourceCount: input.grounding.sourceIds.length,
+              policyVersion: input.grounding.policyVersion,
+              requiresApproval: input.grounding.requiresApproval,
+            }
+          : {}),
+      },
     );
     ensureThread(id).audit.push(event);
 

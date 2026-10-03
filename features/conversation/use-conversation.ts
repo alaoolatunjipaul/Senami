@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import type { AiAction, AiSuggestionDto } from "@/lib/domain/ai";
+import type { AiGovernanceEnvelope } from "@/lib/domain/ai-governance";
 import type { CustomerContextDto } from "@/lib/domain/customer";
 import type {
   AuditEventDto,
@@ -203,6 +204,8 @@ export interface AiSuggestionResponse {
   suggestion: AiSuggestionDto;
   disposition: "draft_only";
   notice: string;
+  /** Grounding, provenance and policy facts for this draft. */
+  governance: AiGovernanceEnvelope;
 }
 
 export function useAiSuggestion(id: string | null) {
