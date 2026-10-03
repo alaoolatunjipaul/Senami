@@ -6,6 +6,7 @@ import {
   History,
   Lock,
   MailOpen,
+  PanelRightClose,
   ShieldAlert,
   Sparkles,
   StickyNote,
@@ -18,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SLAIndicator } from "@/components/ui/sla-indicator";
 import { channelLabel } from "@/lib/domain/channel-visuals";
-import { slaEvaluationOf, type InboxConversationDto } from "@/lib/domain/inbox";
+import { interactionReference, slaEvaluationOf, type InboxConversationDto } from "@/lib/domain/inbox";
 import {
   CONVERSATION_STATUS_META,
   INTENT_META,
@@ -51,6 +52,9 @@ export interface ConversationHeaderProps {
   onSetRead: (read: boolean) => void;
   onShowCustomerHistory: () => void;
   onShowConversationHistory: () => void;
+  /** Docked customer context pane visibility; omitted when it cannot be shown. */
+  onToggleContextPane?: () => void;
+  contextPaneVisible?: boolean;
   onAssign: () => void;
   onEscalate: () => void;
   onMoveToPrivate: () => void;
@@ -73,6 +77,8 @@ export function ConversationHeader({
   onSetRead,
   onShowCustomerHistory,
   onShowConversationHistory,
+  onToggleContextPane,
+  contextPaneVisible = false,
   onAssign,
   onEscalate,
   onMoveToPrivate,
@@ -99,9 +105,21 @@ export function ConversationHeader({
             <span className="text-ink-muted text-xs">
               {conversation.customer.handle} · {channelLabel(conversation.channel)}
             </span>
-            <span className="text-ink-subtle font-mono text-[11px]" data-numeric>
-              {conversation.id}
+          </div>
+
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span
+              className="border-line bg-surface-muted text-ink-secondary inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] font-medium"
+              data-numeric
+              title="Interaction ID - quote this to the customer"
+            >
+              {interactionReference(conversation)}
             </span>
+            {interactionReference(conversation) !== conversation.id ? (
+              <span className="text-ink-subtle font-mono text-[11px]" data-numeric>
+                {conversation.id}
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-1">
@@ -161,6 +179,25 @@ export function ConversationHeader({
           <UserRound className="size-3.5" aria-hidden="true" />
           Customer Context
         </Button>
+        {onToggleContextPane ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleContextPane}
+            aria-pressed={contextPaneVisible}
+            title={
+              contextPaneVisible
+                ? "Hide the customer context pane"
+                : "Show the customer context pane"
+            }
+          >
+            <PanelRightClose
+              className="size-3.5"
+              aria-hidden="true"
+            />
+            {contextPaneVisible ? "Hide context" : "Show context"}
+          </Button>
+        ) : null}
         <Button variant="ghost" size="sm" onClick={onShowConversationHistory}>
           <History className="size-3.5" aria-hidden="true" />
           Conversation History

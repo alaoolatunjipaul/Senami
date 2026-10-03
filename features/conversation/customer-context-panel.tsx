@@ -207,6 +207,12 @@ export function CustomerContextPanel({
                         {CONVERSATION_STATUS_META[entry.status].label}
                       </Badge>
                       <span className="text-ink-subtle text-[11px]">{INTENT_META[entry.intent]}</span>
+                      <span
+                        className="text-ink-muted ml-auto font-mono text-[10px]"
+                        data-numeric
+                      >
+                        {entry.interactionId}
+                      </span>
                     </div>
                   </li>
                 ))}

@@ -99,6 +99,12 @@ export type NavItemId =
 export interface NavItem {
   readonly id: NavItemId;
   readonly label: string;
+  /**
+   * Label per role, for the shared workspace entry. An agent, a supervisor, a QA
+   * reviewer and an administrator each land on their own workspace, so the
+   * sidebar says which one it is instead of calling everyone "Agent workspace".
+   */
+  readonly roleLabels?: Partial<Record<Role, string>>;
   /** A short helper shown on hover / secondary text. */
   readonly helper?: string;
   readonly href: string;
@@ -106,6 +112,14 @@ export interface NavItem {
   readonly section: NavSection;
   /** Roles that may see this item. Empty means available to every role. */
   readonly roles: readonly Role[];
+}
+
+/** The workspace label a role should see for a navigation item. */
+export function navLabelForRole(item: NavItem, role: Role | null): string {
+  if (role !== null && item.roleLabels !== undefined) {
+    return item.roleLabels[role] ?? item.label;
+  }
+  return item.label;
 }
 
 /**
@@ -117,7 +131,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // Work – agent-facing
   {
     id: "dashboard",
-    label: "Workspace",
+    label: "Agent workspace",
+    roleLabels: {
+      AGENT: "Agent workspace",
+      SUPERVISOR: "Supervisor workspace",
+      QA: "QA workspace",
+    },
     helper: "Today, your queue and your response metrics",
     href: "/dashboard",
     icon: Gauge,
@@ -250,6 +269,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "overview",
     label: "Supervisor workspace",
+    roleLabels: {
+      SUPERVISOR: "Supervisor workspace",
+      ADMIN: "Admin workspace",
+    },
     href: "/supervisor",
     icon: MonitorCheck,
     section: "oversight",
@@ -427,11 +450,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
 ];
 
-/** Items visible to a given role, in canonical section order. */
+/**
+ * Items visible to a given role, in canonical section order, with each label
+ * already resolved for that role so the sidebar never has to know about roles.
+ */
 export function navItemsForRole(role: Role | null): ReadonlyArray<NavItem> {
   return NAV_ITEMS.filter(
     (item) => item.roles.length === 0 || (role !== null && item.roles.includes(role)),
-  );
+  ).map((item) => {
+    const label = navLabelForRole(item, role);
+    return label === item.label ? item : { ...item, label };
+  });
 }
 
 export function navSectionsForRole(role: Role | null): ReadonlyArray<NavSection> {

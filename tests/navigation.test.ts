@@ -104,4 +104,30 @@ describe("navigation model", () => {
     expect(activeNavItemId("/admin/users", "AGENT")).toBeNull();
     expect(activeNavItemId("/admin/users", "ADMIN")).toBe("users");
   });
+
+  it("labels the workspace for the signed-in role", () => {
+    const label = (role: "AGENT" | "SUPERVISOR" | "QA" | "ADMIN", id: string) =>
+      navItemsForRole(role).find((item) => item.id === id)?.label;
+
+    expect(label("SUPERVISOR", "overview")).toBe("Supervisor workspace");
+    expect(label("AGENT", "dashboard")).toBe("Agent workspace");
+    expect(label("QA", "dashboard")).toBe("QA workspace");
+    expect(label("ADMIN", "overview")).toBe("Admin workspace");
+  });
+
+  it("keeps the role routing behind each workspace label", () => {
+    const href = (role: "AGENT" | "SUPERVISOR" | "QA" | "ADMIN", id: string) =>
+      navItemsForRole(role).find((item) => item.id === id)?.href;
+
+    expect(href("SUPERVISOR", "overview")).toBe("/supervisor");
+    expect(href("AGENT", "dashboard")).toBe("/dashboard");
+    expect(href("QA", "dashboard")).toBe("/dashboard");
+    expect(href("ADMIN", "overview")).toBe("/supervisor");
+  });
+
+  it("still lets a supervisor open the social inbox", () => {
+    const ids = navItemsForRole("SUPERVISOR").map((item) => item.id);
+    expect(ids).toContain("instagram");
+    expect(ids).toContain("comments");
+  });
 });

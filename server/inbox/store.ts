@@ -1,10 +1,15 @@
-import { CHANNELS, CHANNEL_LABELS } from "@/lib/config";
+import { CHANNELS, CHANNEL_LABELS, type ChannelId } from "@/lib/config";
 import { MINUTE_MS } from "@/lib/format";
 import type { SearchResultGroup } from "@/lib/domain/search";
 import {
+  INTERACTION_CHANNEL_CODES,
+  interactionIdFor,
+  interactionReference,
+} from "@/lib/domain/interaction-id";
+import {
   DEFAULT_PAGE_SIZE,
   compareByRecency,
-  conversationContainsText,
+  conversationMatchesTerm,
   matchesInboxQuery,
   type InboxAssignee,
   type InboxConversation,
@@ -211,7 +216,8 @@ function receivedOffsetMinutes(rng: () => number): number {
 
 function buildConversations(now: Date, rng: () => number): readonly InboxConversation[] {
   const customers = buildCustomers(rng);
-  const conversations: InboxConversation[] = [];
+  type Draft = { -readonly [K in keyof InboxConversation]: InboxConversation[K] };
+  const conversations: Draft[] = [];
 
   for (let i = 0; i < 128; i += 1) {
     const channel = CHANNELS[i % CHANNELS.length] ?? "instagram";
@@ -277,11 +283,8 @@ function buildConversations(now: Date, rng: () => number): readonly InboxConvers
       assignedTo = rng() < 0.45 ? pick(AGENTS, rng) : null;
     }
 
-    const interactionId = `INT-SOC-${receivedAt.getFullYear()}${String(receivedAt.getMonth() + 1).padStart(2, "0")}${String(receivedAt.getDate()).padStart(2, "0")}-${String(i + 1).padStart(5, "0")}`;
-
     conversations.push({
       id: `cv_${String(i).padStart(4, "0")}`,
-      interactionId,
       channel,
       customer,
       receivedAt,
@@ -297,6 +300,21 @@ function buildConversations(now: Date, rng: () => number): readonly InboxConvers
       assignedTo,
       unread,
     });
+  }
+
+  // Interaction references are assigned in chronological order so the embedded
+  // day and sequence read like a real ticket number: every interaction that
+  // arrived on a given day shares a counter, oldest first. Generation order
+  // above is random, so sort a copy instead of mutating the seeded order.
+  const sequenceByDay = new Map<string, number>();
+  for (const conversation of [...conversations].sort((a, b) => {
+    const byReceived = a.receivedAt.getTime() - b.receivedAt.getTime();
+    return byReceived !== 0 ? byReceived : a.id.localeCompare(b.id);
+  })) {
+    const dayKey = conversation.receivedAt.toISOString().slice(0, 10);
+    const next = (sequenceByDay.get(dayKey) ?? 0) + 1;
+    sequenceByDay.set(dayKey, next);
+    conversation.interactionId = interactionIdFor(conversation.channel, conversation.receivedAt, next);
   }
 
   return conversations;
@@ -341,6 +359,13 @@ export interface InboxStore {
   update(id: string, patch: ConversationPatch): InboxConversation | null;
   /** Add a new conversation (e.g. a linked direct-message thread). */
   create(conversation: InboxConversation): InboxConversation;
+  /**
+   * How many interaction references already exist for a channel family on a
+   * given calendar day. A caller minting the next reference passes the result
+   * straight to `interactionIdFor`, which keeps runtime-created interactions
+   * from colliding with seeded ones.
+   */
+  interactionSequenceFor(channel: ChannelId, at: Date): number;
   /** The agents conversations can be assigned to. */
   assignees(): readonly InboxAssignee[];
   /** Global search across conversations and customers. */
@@ -409,6 +434,16 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     return mutable;
   }
 
+  function interactionSequenceFor(channel: ChannelId, at: Date): number {
+    const code = INTERACTION_CHANNEL_CODES[channel];
+    const day = at.toISOString().slice(0, 10);
+    return conversations.filter(
+      (conversation) =>
+        INTERACTION_CHANNEL_CODES[conversation.channel] === code &&
+        conversation.receivedAt.toISOString().slice(0, 10) === day,
+    ).length;
+  }
+
   function assignees(): readonly InboxAssignee[] {
     const seen = new Map<string, InboxAssignee>();
     for (const agent of [...AGENTS, ESCALATION_OWNER]) {
@@ -422,13 +457,13 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     if (query.length < 2) return [];
 
     const conversationItems = conversations
-      .filter((conversation) => conversationContainsText(conversation, query))
+      .filter((conversation) => conversationMatchesTerm(conversation, query))
       .sort(compareByRecency)
       .slice(0, limitPerGroup)
       .map((conversation) => ({
         id: conversation.id,
         label: conversation.customer.name,
-        sublabel: `${CHANNEL_LABELS[conversation.channel]} · ${conversation.preview}`,
+        sublabel: `${interactionReference(conversation)} · ${CHANNEL_LABELS[conversation.channel]} · ${conversation.preview}`,
         href: `/inbox?conversation=${conversation.id}`,
       }));
 
@@ -513,7 +548,7 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     }
   }
 
-  return { list, getById, markRead, update, create, assignees, search, options, attentionCount };
+  return { list, getById, markRead, update, create, interactionSequenceFor, assignees, search, options, attentionCount };
 }
 
 /** Process-wide store used by the app. Reset is exposed for tests only. */

@@ -344,12 +344,18 @@ export function toAuditEventDto(event: AuditEvent): AuditEventDto {
 
 export interface CustomerHistoryConversation {
   readonly id: string;
+  /** Human-facing reference, e.g. `INT-SOC-20261001-00421`. */
+  readonly interactionId: string;
   readonly channel: ChannelId;
   readonly intent: Intent;
   readonly status: ConversationStatus;
   readonly priority: Priority;
   readonly preview: string;
+  /** When the interaction started; what an agent reads as "the date". */
+  readonly receivedAt: Date;
   readonly lastMessageAt: Date;
+  /** The agent who handled it, or null when it was never assigned. */
+  readonly assignedTo: InboxAssignee | null;
 }
 
 export interface CustomerHistory {
@@ -362,6 +368,12 @@ export interface CustomerHistory {
   readonly recent: readonly CustomerHistoryConversation[];
 }
 
+export interface CustomerHistoryEntryDto
+  extends Omit<CustomerHistoryConversation, "receivedAt" | "lastMessageAt"> {
+  readonly receivedAt: string;
+  readonly lastMessageAt: string;
+}
+
 export interface CustomerHistoryDto {
   readonly customer: InboxCustomer;
   readonly totalConversations: number;
@@ -369,7 +381,7 @@ export interface CustomerHistoryDto {
   readonly resolvedConversations: number;
   readonly firstContactAt: string;
   readonly lastContactAt: string;
-  readonly recent: ReadonlyArray<Omit<CustomerHistoryConversation, "lastMessageAt"> & { readonly lastMessageAt: string }>;
+  readonly recent: readonly CustomerHistoryEntryDto[];
 }
 
 export function toCustomerHistoryDto(history: CustomerHistory): CustomerHistoryDto {
@@ -382,6 +394,7 @@ export function toCustomerHistoryDto(history: CustomerHistory): CustomerHistoryD
     lastContactAt: history.lastContactAt.toISOString(),
     recent: history.recent.map((entry) => ({
       ...entry,
+      receivedAt: entry.receivedAt.toISOString(),
       lastMessageAt: entry.lastMessageAt.toISOString(),
     })),
   };

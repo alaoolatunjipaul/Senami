@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { CHANNELS } from "@/lib/config";
 import { DEFAULT_INBOX_QUERY, type InboxQuery } from "@/lib/domain/inbox";
+import { interactionIdFor, isInteractionId } from "@/lib/domain/interaction-id";
 import { INTENTS, PRIORITIES, SENTIMENTS } from "@/lib/domain/taxonomy";
 import { buildInboxStore, demoInboxStore, resetDemoInboxStore } from "@/server/inbox/store";
 
@@ -155,5 +156,87 @@ describe("inbox store mutations and aggregates", () => {
     expect(flat.length).toBeGreaterThan(0);
     expect(flat.some((item) => item.label === conversation.customer.name)).toBe(true);
     expect(groups.some((group) => group.id === "customers")).toBe(true);
+  });
+});
+
+describe("seeded interaction references", () => {
+  it("gives every seeded interaction a well-formed reference", () => {
+    const items = buildInboxStore(NOW).list(ALL, NOW).items;
+    for (const item of items) {
+      expect(item.interactionId).toBeDefined();
+      expect(isInteractionId(item.interactionId ?? "")).toBe(true);
+    }
+  });
+
+  it("never reuses a reference", () => {
+    const items = buildInboxStore(NOW).list(ALL, NOW).items;
+    expect(new Set(items.map((item) => item.interactionId)).size).toBe(items.length);
+  });
+
+  it("is stable across store rebuilds", () => {
+    const first = buildInboxStore(NOW).list(ALL, NOW).items.map((item) => item.interactionId);
+    const second = buildInboxStore(NOW).list(ALL, NOW).items.map((item) => item.interactionId);
+    expect(second).toEqual(first);
+  });
+
+  it("resolves a pasted reference to exactly one interaction in the list", () => {
+    const store = buildInboxStore(NOW);
+    const target = store.list(ALL, NOW).items[7];
+    if (!target?.interactionId) throw new Error("no data");
+
+    const found = store.list(query({ search: target.interactionId, pageSize: 1000 }), NOW);
+    expect(found.total).toBe(1);
+    expect(found.items[0]?.id).toBe(target.id);
+  });
+
+  it("resolves a social handle to that customer's interactions", () => {
+    const store = buildInboxStore(NOW);
+    const target = store.list(ALL, NOW).items[3];
+    if (!target) throw new Error("no data");
+
+    const found = store.list(query({ search: target.customer.handle, pageSize: 1000 }), NOW);
+    expect(found.total).toBeGreaterThan(0);
+    expect(found.items.every((item) => item.customer.handle === target.customer.handle)).toBe(true);
+  });
+
+  it("surfaces the reference in global search results", () => {
+    const store = buildInboxStore(NOW);
+    const target = store.list(ALL, NOW).items[2];
+    if (!target?.interactionId) throw new Error("no data");
+
+    const flat = store.search(target.interactionId).flatMap((group) => group.items);
+    expect(flat.some((item) => item.sublabel?.includes(target.interactionId ?? ""))).toBe(true);
+  });
+
+  it("filters the list by an arbitrary calendar day and restores on clear", () => {
+    const store = buildInboxStore(NOW);
+    const target = store.list(ALL, NOW).items[5];
+    if (!target) throw new Error("no data");
+    const day = target.receivedAt;
+    const iso = `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, "0")}-${String(day.getUTCDate()).padStart(2, "0")}`;
+
+    const scoped = store.list(
+      query({ date: "custom", dateFrom: iso, dateTo: iso, pageSize: 1000 }),
+      NOW,
+    );
+    expect(scoped.total).toBeGreaterThan(0);
+    expect(scoped.total).toBeLessThan(128);
+    expect(
+      scoped.items.every(
+        (item) =>
+          item.receivedAt.getTime() <= new Date(`${iso}T23:59:59.999Z`).getTime() &&
+          item.lastMessageAt.getTime() >= new Date(`${iso}T00:00:00.000Z`).getTime(),
+      ),
+    ).toBe(true);
+
+    expect(store.list(query({ pageSize: 1000 }), NOW).total).toBe(128);
+  });
+
+  it("mints a fresh reference for a created interaction without colliding", () => {
+    const store = buildInboxStore(NOW);
+    const existing = store.list(ALL, NOW).items.map((item) => item.interactionId);
+    const sequence = store.interactionSequenceFor("instagram", NOW) + 1;
+    const minted = interactionIdFor("instagram", NOW, sequence);
+    expect(existing).not.toContain(minted);
   });
 });

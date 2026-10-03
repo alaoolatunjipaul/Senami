@@ -18,12 +18,12 @@ export interface ScopeNoticeProps {
 
 export function ScopeNotice({ title, description, phase, className }: ScopeNoticeProps) {
   return (
-    <div className={cn("flex flex-col", className)}>
+    <div className={cn("flex h-full min-h-0 flex-col", className)}>
       <PageHeader
         title={title}
         description="This workspace is part of the Senami roadmap and will arrive with its phase."
       />
-      <div className="flex flex-1 items-start justify-center p-6">
+      <div className="scrollbar-slim flex min-h-0 flex-1 items-start justify-center overflow-y-auto p-6">
         <div className="w-full max-w-lg">
           <EmptyState
             icon="inbox"

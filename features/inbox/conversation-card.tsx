@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SLAIndicator } from "@/components/ui/sla-indicator";
 import { channelDotClass, channelLabel } from "@/lib/domain/channel-visuals";
-import { slaEvaluationOf, type InboxConversationDto } from "@/lib/domain/inbox";
+import { slaEvaluationOf, interactionReference, type InboxConversationDto } from "@/lib/domain/inbox";
 import {
   CONVERSATION_STATUS_META,
   INTENT_META,
@@ -79,6 +79,12 @@ export function ConversationCard({ item, selected, onSelect, now }: Conversation
             <span className="truncate">{item.customer.handle}</span>
             <span aria-hidden="true">·</span>
             <span className="shrink-0">{channelLabel(item.channel)}</span>
+          </div>
+
+          <div className="text-ink-subtle mt-1 flex items-center gap-1.5 text-[11px]">
+            <span className="bg-surface-muted text-ink-muted rounded px-1 py-px font-medium" data-numeric>
+              {interactionReference(item)}
+            </span>
           </div>
 
           <p className="text-ink-secondary mt-1 line-clamp-2 text-xs">{item.preview}</p>

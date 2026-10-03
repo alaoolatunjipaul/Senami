@@ -2,6 +2,11 @@ import { CHANNELS, type ChannelId } from "@/lib/config";
 import { channelLabel } from "@/lib/domain/channel-visuals";
 import { MONTH_MS, WEEK_MS } from "@/lib/format";
 import {
+  interactionReference,
+  isInteractionId,
+  normaliseInteractionId,
+} from "@/lib/domain/interaction-id";
+import {
   evaluateSla,
   getSlaPolicy,
   SLA_STATE_LABEL,
@@ -21,6 +26,8 @@ import {
   type Priority,
   type Sentiment,
 } from "@/lib/domain/taxonomy";
+
+export { interactionReference, interactionIdFor, isInteractionId } from "@/lib/domain/interaction-id";
 
 /**
  * Inbox domain.
@@ -115,6 +122,10 @@ export interface InboxQuery {
   readonly assigneeId: string | "";
   readonly teamId: string | "";
   readonly date: DatePreset;
+  /** Inclusive first day of an explicit calendar selection (YYYY-MM-DD). */
+  readonly dateFrom: string;
+  /** Inclusive last day of an explicit calendar selection (YYYY-MM-DD). */
+  readonly dateTo: string;
   readonly search: string;
   /** The signed-in user, used only by the "assigned to me" view. */
   readonly userId?: string;
@@ -134,6 +145,8 @@ export const DEFAULT_INBOX_QUERY: InboxQuery = {
   assigneeId: "",
   teamId: "",
   date: "any",
+  dateFrom: "",
+  dateTo: "",
   search: "",
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
@@ -164,6 +177,8 @@ export function inboxQueryFromSearchParams(params: URLSearchParams): InboxQuery 
     assigneeId: params.get("assignee") ?? "",
     teamId: params.get("team") ?? "",
     date: (DATE_PRESETS as readonly string[]).includes(date ?? "") ? (date as DatePreset) : "any",
+    dateFrom: normaliseIsoDate(params.get("from")),
+    dateTo: normaliseIsoDate(params.get("to")),
     search: params.get("q") ?? "",
     page: Number.isInteger(page) && page > 0 ? page : 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -241,25 +256,44 @@ export function slaEvaluationOf(item: SlaEvaluationInput, now: Date = new Date()
 }
 
 /** Whether a conversation textually matches a (lower-cased) search term. */
-export function conversationContainsText(item: InboxConversation, term: string): boolean {
-  const haystack = [
-    item.customer.name,
-    item.customer.handle,
-    item.preview,
-    INTENT_META[item.intent],
-    item.id,
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(term);
-}
+  export function conversationContainsText(item: InboxConversation, term: string): boolean {
+    const haystack = [
+      item.customer.name,
+      item.customer.handle,
+      item.preview,
+      INTENT_META[item.intent],
+      item.id,
+      item.interactionId ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(term);
+  }
 
 /**
- * Whether a timestamp falls inside a date preset. Exported so other consoles
- * (supervisor audit, QA) share the one definition of "today" and "last 7 days"
- * rather than each re-deriving it.
- */
-export function withinDatePreset(preset: DatePreset, at: Date, now: Date): boolean {
+   * Whether a conversation matches a search term.
+   *
+   * An interaction reference is treated as an exact lookup when the operator
+   * pasted a complete one, because pasting `INT-SOC-20261001-00421` must surface
+   * that interaction rather than every row whose preview happens to contain the
+   * same digits. Everything else is a substring match across customer name,
+   * social handle, message text and interaction reference.
+   */
+  export function conversationMatchesTerm(item: InboxConversation, term: string): boolean {
+    const query = term.trim().toLowerCase();
+    if (query === "") return true;
+    if (isInteractionId(query)) {
+      return normaliseInteractionId(query) === interactionReference(item).toUpperCase();
+    }
+    return conversationContainsText(item, query);
+  }
+
+  /**
+   * Whether a timestamp falls inside a date preset. Exported so other consoles
+   * (supervisor audit, QA) share the one definition of "today" and "last 7 days"
+   * rather than each re-deriving it.
+   */
+  export function withinDatePreset(preset: DatePreset, at: Date, now: Date): boolean {
     switch (preset) {
       case "any":
         return true;
@@ -315,6 +349,96 @@ export function withinDatePreset(preset: DatePreset, at: Date, now: Date): boole
     }
   }
 
+  /** A calendar day rendered as `YYYY-MM-DD`, in the viewer's local timezone. */
+  export function toIsoDate(value: Date): string {
+    const year = String(value.getFullYear()).padStart(4, "0");
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  /** Accept only real `YYYY-MM-DD` calendar days; anything else means "unset". */
+  export function normaliseIsoDate(value: string | null | undefined): string {
+    if (value === null || value === undefined || value === "") return "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+    const parsed = new Date(`${value}T00:00:00.000`);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return toIsoDate(parsed) === value ? value : "";
+  }
+
+  /** Local midnight at the start of an ISO calendar day. */
+  export function startOfIsoDay(value: string): Date {
+    return new Date(`${value}T00:00:00.000`);
+  }
+
+  export interface DateWindow {
+    /** Inclusive lower bound in epoch milliseconds. */
+    readonly start: number;
+    /** Exclusive upper bound in epoch milliseconds. */
+    readonly end: number;
+  }
+
+  /**
+   * Resolve the explicit calendar selection in a query into a concrete window.
+   * A single day is a window of that day only; a range spans first day through
+   * the end of the last day. Returns null when no explicit day is selected so
+   * callers fall back to the preset.
+   */
+  export function dateWindowFromQuery(
+    query: Pick<InboxQuery, "dateFrom" | "dateTo">,
+  ): DateWindow | null {
+    const from = normaliseIsoDate(query.dateFrom);
+    const to = normaliseIsoDate(query.dateTo);
+    const first = from !== "" ? from : to;
+    const last = to !== "" ? to : from;
+    if (first === "" || last === "") return null;
+
+    const earlier = first <= last ? first : last;
+    const later = first <= last ? last : first;
+    const end = startOfIsoDay(later);
+    end.setDate(end.getDate() + 1);
+
+    return { start: startOfIsoDay(earlier).getTime(), end: end.getTime() };
+  }
+
+  /** Human summary of the active calendar selection, e.g. "18 Sep 2026". */
+  export function describeDateSelection(query: Pick<InboxQuery, "date" | "dateFrom" | "dateTo">): string {
+    const window = dateWindowFromQuery(query);
+    if (window === null) return DATE_PRESET_LABELS[query.date];
+    const from = normaliseIsoDate(query.dateFrom) || normaliseIsoDate(query.dateTo);
+    const to = normaliseIsoDate(query.dateTo) || normaliseIsoDate(query.dateFrom);
+    const format = (value: string) =>
+      startOfIsoDay(value).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    return from === to ? format(from) : `${format(from)} - ${format(to)}`;
+  }
+
+  /**
+   * Whether an interaction happened inside the explicit calendar window. The
+   * test is an overlap, not a single timestamp: an interaction that opened
+   * before the window and was still being answered inside it belongs to that
+   * day, which is what an agent means by "show me the 18th".
+   */
+  export function withinDateWindow(item: InboxConversation, window: DateWindow): boolean {
+    const startedAt = item.receivedAt.getTime();
+    const lastActivityAt = item.lastMessageAt.getTime();
+    return startedAt < window.end && lastActivityAt >= window.start;
+  }
+
+  /** The date dimension of `matchesInboxQuery`, in one place. */
+  export function matchesInboxDate(
+    item: InboxConversation,
+    query: Pick<InboxQuery, "date" | "dateFrom" | "dateTo">,
+    now: Date,
+  ): boolean {
+    const window = dateWindowFromQuery(query);
+    if (window !== null) return withinDateWindow(item, window);
+    return withinDatePreset(query.date, item.lastMessageAt, now);
+  }
+
 /**
  * The one predicate the whole inbox relies on. Every dimension is applied
  * conjunctively; an empty value means "no constraint" so a filter is only
@@ -356,10 +480,10 @@ export function matchesInboxQuery(
   if (query.teamId !== "" && item.assignedTo?.teamId !== query.teamId) return false;
   if (query.sla !== "" && slaEvaluationOf(item, now).state !== query.sla) return false;
 
-  if (!withinDatePreset(query.date, item.lastMessageAt, now)) return false;
+  if (!matchesInboxDate(item, query, now)) return false;
 
-  const term = query.search.trim().toLowerCase();
-  if (term !== "" && !conversationContainsText(item, term)) return false;
+const term = query.search.trim().toLowerCase();
+    if (term !== "" && !conversationMatchesTerm(item, term)) return false;
 
   return true;
 }

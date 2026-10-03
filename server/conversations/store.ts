@@ -17,6 +17,7 @@ import {
   type MessageAuthor,
   type ResolvableStatus,
 } from "@/lib/domain/conversation";
+import { interactionIdFor, interactionReference } from "@/lib/domain/interaction-id";
 import { DEFAULT_INBOX_QUERY, type InboxAssignee, type InboxConversation } from "@/lib/domain/inbox";
 import { INTENT_META, PRIORITY_META, type MessageKind, type Priority } from "@/lib/domain/taxonomy";
 import { MINUTE_MS } from "@/lib/format";
@@ -602,14 +603,17 @@ export function buildConversationStore(): ConversationStore {
       ).length,
       firstContactAt: earliest.lastMessageAt,
       lastContactAt: first.lastMessageAt,
-      recent: owned.slice(0, 6).map((conversation) => ({
+      recent: owned.slice(0, 8).map((conversation) => ({
         id: conversation.id,
+        interactionId: interactionReference(conversation),
         channel: conversation.channel,
         intent: conversation.intent,
         status: conversation.status,
         priority: conversation.priority,
         preview: conversation.preview,
+        receivedAt: conversation.receivedAt,
         lastMessageAt: conversation.lastMessageAt,
+        assignedTo: conversation.assignedTo,
       })),
     };
   }
@@ -977,10 +981,13 @@ export function buildConversationStore(): ConversationStore {
     dmCounter += 1;
     const createdId = `cv_dm_${String(dmCounter).padStart(4, "0")}`;
     const greeting = input.greeting.trim();
+    // New interactions continue the day's sequence rather than restarting it,
+    // so a reference minted at runtime cannot collide with a seeded one.
+    const daySequence = inbox.interactionSequenceFor(origin.channel, now) + 1;
 
     const created = inbox.create({
       id: createdId,
-      interactionId: `INT-SOC-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-DM${String(dmCounter).padStart(5, "0")}`,
+      interactionId: interactionIdFor(origin.channel, now, daySequence),
       channel: origin.channel,
       customer: origin.customer,
       receivedAt: now,

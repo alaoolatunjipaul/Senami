@@ -7,7 +7,7 @@ import { ErrorState, LoadingState } from "@/components/ui/states";
 import { channelLabel } from "@/lib/domain/channel-visuals";
 import type { CustomerHistoryDto } from "@/lib/domain/conversation";
 import { CONVERSATION_STATUS_META, INTENT_META, PRIORITY_META } from "@/lib/domain/taxonomy";
-import { formatDate, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/format";
 
 /**
  * Customer history drawer (§8).
@@ -23,6 +23,10 @@ export interface CustomerHistoryPanelProps {
   error: boolean;
   onRetry: () => void;
   now: Date;
+  /** Open a previous interaction in the workspace. */
+  onOpenInteraction?: (conversationId: string) => void;
+  /** Internal conversation id of the interaction currently open. */
+  activeConversationId?: string | null;
 }
 
 export function CustomerHistoryPanel({
@@ -33,6 +37,8 @@ export function CustomerHistoryPanel({
   error,
   onRetry,
   now,
+  onOpenInteraction,
+  activeConversationId = null,
 }: CustomerHistoryPanelProps) {
   return (
     <Drawer
@@ -90,8 +96,12 @@ export function CustomerHistoryPanel({
                 {history.recent.map((conversation) => {
                   const status = CONVERSATION_STATUS_META[conversation.status];
                   const priority = PRIORITY_META[conversation.priority];
+                  const active = conversation.id === activeConversationId;
                   return (
-                    <li key={conversation.id} className="border-line rounded-md border px-3 py-2">
+                    <li
+                      key={conversation.id}
+                      className="border-line rounded-md border px-3 py-2"
+                    >
                       <div className="flex flex-wrap items-center gap-1">
                         <Badge tone={status.tone} size="sm" srPrefix="Status">
                           {status.label}
@@ -107,9 +117,39 @@ export function CustomerHistoryPanel({
                           {formatRelativeTime(conversation.lastMessageAt, now)}
                         </span>
                       </div>
+                      <p
+                        className="bg-surface-muted text-ink-secondary mt-1 inline-block rounded px-1 py-px font-mono text-[10px]"
+                        data-numeric
+                      >
+                        {conversation.interactionId}
+                      </p>
                       <p className="text-ink-secondary mt-1 line-clamp-2 text-xs">
                         {conversation.preview}
                       </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <time
+                          className="text-ink-subtle text-[11px]"
+                          dateTime={conversation.receivedAt}
+                          title={formatDateTime(conversation.receivedAt)}
+                        >
+                          {formatDate(conversation.receivedAt)}
+                        </time>
+                        <span className="text-ink-subtle text-[11px]">
+                          {conversation.assignedTo
+                            ? `Handled by ${conversation.assignedTo.name}`
+                            : "Unassigned"}
+                        </span>
+                        {onOpenInteraction ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenInteraction(conversation.id)}
+                            disabled={active}
+                            className="text-primary hover:text-primary-ink ml-auto text-[11px] font-medium disabled:text-ink-subtle"
+                          >
+                            {active ? "Currently open" : "Open interaction"}
+                          </button>
+                        ) : null}
+                      </div>
                     </li>
                   );
                 })}

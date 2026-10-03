@@ -5,8 +5,6 @@ import { Search, X } from "lucide-react";
 import { CHANNELS, CHANNEL_LABELS, type ChannelId } from "@/lib/config";
 import { channelDotClass } from "@/lib/domain/channel-visuals";
 import {
-  DATE_PRESETS,
-  DATE_PRESET_LABELS,
   INBOX_VIEWS,
   INBOX_VIEW_LABELS,
   INTENT_OPTIONS,
@@ -18,6 +16,8 @@ import {
   type InboxQuery,
 } from "@/lib/domain/inbox";
 import { cn } from "@/lib/utils";
+
+import { DateFilter } from "@/features/inbox/date-filter";
 
 /**
  * Inbox filter bar.
@@ -32,6 +32,7 @@ export interface FilterBarProps {
   options: InboxFilterOptions | null;
   onPatch: (patch: Partial<InboxQuery>) => void;
   onClear: () => void;
+  onClearDates: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
 }
@@ -47,6 +48,8 @@ function hasActiveFilters(query: InboxQuery): boolean {
     query.assigneeId !== "" ||
     query.teamId !== "" ||
     query.date !== "any" ||
+    query.dateFrom !== "" ||
+    query.dateTo !== "" ||
     query.search.trim() !== ""
   );
 }
@@ -56,6 +59,7 @@ export function FilterBar({
   options,
   onPatch,
   onClear,
+  onClearDates,
   searchValue,
   onSearchChange,
 }: FilterBarProps) {
@@ -174,15 +178,7 @@ export function FilterBar({
           options={(options?.teams ?? []).map((team) => ({ value: team.id, label: team.name }))}
           onChange={(value) => onPatch({ teamId: value })}
         />
-        <FilterSelect
-          label="Date"
-          value={query.date}
-          options={DATE_PRESETS.map((preset) => ({
-            value: preset,
-            label: DATE_PRESET_LABELS[preset],
-          }))}
-          onChange={(value) => onPatch({ date: value as InboxQuery["date"] })}
-        />
+        <DateFilter query={query} onPatch={onPatch} onClearDates={onClearDates} />
 
         {active ? (
           <button

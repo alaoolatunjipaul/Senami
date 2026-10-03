@@ -7,7 +7,9 @@ import { AiAssistPanel } from "@/features/conversation/ai-assist-panel";
 import { AssignDialog } from "@/features/conversation/assign-dialog";
 import { ConversationHeader } from "@/features/conversation/conversation-header";
 import { ConversationHistoryPanel } from "@/features/conversation/conversation-history-panel";
+import { CustomerHistoryPanel } from "@/features/conversation/customer-history-panel";
 import { CustomerContextPanel } from "@/features/conversation/customer-context-panel";
+import { CustomerContextPane } from "@/features/conversation/customer-context-pane";
 import { EscalateDialog } from "@/features/conversation/escalate-dialog";
 import { MessageTimeline } from "@/features/conversation/message-timeline";
 import { MoveToPrivateDialog } from "@/features/conversation/move-to-private-dialog";
@@ -27,6 +29,7 @@ import {
   useConversationMessages,
   useConversationStatus,
   useCustomerContext,
+  useCustomerHistory,
   useEscalateConversation,
   useMoveToPrivate,
   useRecordDraftEdit,
@@ -85,6 +88,11 @@ export function ConversationWorkspace({
   const [resolveOpen, setResolveOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [customerContextOpen, setCustomerContextOpen] = useState(false);
+  // The docked right-hand pane is the default on a wide viewport; the drawer is
+  // still available for narrower screens and for the explicit "Customer Context"
+  // action, so nothing existing is removed.
+  const [contextPaneDismissed, setContextPaneDismissed] = useState(false);
+  const [customerHistoryOpen, setCustomerHistoryOpen] = useState(false);
   const [conversationHistoryOpen, setConversationHistoryOpen] = useState(false);
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
   // Keyed by conversation so switching threads cannot show the previous
@@ -96,11 +104,25 @@ export function ConversationWorkspace({
   const [draftText, setDraftText] = useState("");
 
   const composerRef = useRef<ResponseComposerHandle | null>(null);
+  const [wideViewport, setWideViewport] = useState(false);
+
+  // The three-column Response Desk only fits on a wide viewport; below the xl
+  // breakpoint the right pane is dropped and the drawer remains the way in.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const sync = () => setWideViewport(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  const showContextPane = wideViewport && !contextPaneDismissed;
 
   const detail = useConversationDetail(conversationId);
   const messages = useConversationMessages(conversationId);
   const audit = useConversationAudit(conversationId);
   const customer = useCustomerContext(conversationId);
+  const customerHistory = useCustomerHistory(conversationId);
   const recordOpen = useRecordOpen(conversationId);
   const recordDraftEdit = useRecordDraftEdit(conversationId);
 
@@ -215,7 +237,14 @@ export function ConversationWorkspace({
   const alreadyResolved = conversation.status === "resolved" || conversation.status === "closed";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0">
+      {/*
+        Response Desk structure: the conversation is the dominant column and owns
+        the single primary scroll (header + timeline + composer are fixed within
+        the viewport), while customer context docks to the right and scrolls on
+        its own. Neither pane scrolls the page, so nothing nests.
+      */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ConversationHeader
         conversation={conversation}
         now={now}
@@ -228,8 +257,16 @@ export function ConversationWorkspace({
         canUseAi={canUseAi}
         canResolve={canResolve}
         onSetRead={onSetRead}
-        onShowCustomerHistory={() => setCustomerContextOpen(true)}
+        onShowCustomerHistory={() => {
+          // On a wide viewport the same facts are already docked on the right, so
+          // the action re-opens the drawer only when the pane is not shown.
+          setCustomerContextOpen(!showContextPane);
+        }}
         onShowConversationHistory={() => setConversationHistoryOpen(true)}
+        onToggleContextPane={
+          wideViewport ? () => setContextPaneDismissed((value) => !value) : undefined
+        }
+        contextPaneVisible={showContextPane}
         onAssign={() => setAssignOpen(true)}
         onEscalate={() => setEscalateOpen(true)}
         onMoveToPrivate={() => setMoveOpen(true)}
@@ -238,19 +275,27 @@ export function ConversationWorkspace({
         onShowResolve={() => setResolveOpen(true)}
       />
 
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        {messages.isLoading ? (
-          <LoadingState label="Loading the conversation…" />
-        ) : messages.isError ? (
-          <ErrorState
-            title="Unable to load messages"
-            description="The conversation timeline could not be loaded."
-            onRetry={() => void messages.refetch()}
-            retrying={messages.isFetching}
-          />
-        ) : (
-          <MessageTimeline messages={messages.data?.messages ?? []} now={now} />
-        )}
+      {/*
+        The one primary scroll in the centre column. The inner measure is capped
+        so a long thread stays readable instead of stretching to a 4K monitor,
+        and the generous vertical rhythm removes the cramped feel of a small
+        fixed-height chat box.
+      */}
+      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-5 py-6">
+        <div className="mx-auto w-full max-w-3xl">
+          {messages.isLoading ? (
+            <LoadingState label="Loading the conversation…" />
+          ) : messages.isError ? (
+            <ErrorState
+              title="Unable to load messages"
+              description="The conversation timeline could not be loaded."
+              onRetry={() => void messages.refetch()}
+              retrying={messages.isFetching}
+            />
+          ) : (
+            <MessageTimeline messages={messages.data?.messages ?? []} now={now} />
+          )}
+        </div>
       </div>
 
       <ResponseComposer
@@ -313,6 +358,21 @@ export function ConversationWorkspace({
         onRetry={() => void customer.refetch()}
       />
 
+      <CustomerHistoryPanel
+        open={customerHistoryOpen}
+        onOpenChange={setCustomerHistoryOpen}
+        history={customerHistory.data ?? null}
+        loading={customerHistory.isLoading}
+        error={customerHistory.isError}
+        onRetry={() => void customerHistory.refetch()}
+        now={now}
+        activeConversationId={conversationId}
+        onOpenInteraction={(id) => {
+          setCustomerHistoryOpen(false);
+          onConversationCreated?.(id);
+        }}
+      />
+
       <ConversationHistoryPanel
         open={conversationHistoryOpen}
         onOpenChange={setConversationHistoryOpen}
@@ -365,6 +425,20 @@ export function ConversationWorkspace({
           })
         }
       />
+      </div>
+
+      {showContextPane ? (
+        <CustomerContextPane
+          customer={customer.data?.customer ?? null}
+          loading={customer.isLoading}
+          error={customer.isError}
+          onRetry={() => void customer.refetch()}
+          activeConversationId={conversationId}
+          onOpenInteraction={(id) => onConversationCreated?.(id)}
+          onOpenFullHistory={() => setCustomerHistoryOpen(true)}
+          now={now}
+        />
+      ) : null}
     </div>
   );
 }

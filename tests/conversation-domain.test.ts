@@ -163,18 +163,29 @@ describe("DTO mapping", () => {
       recent: [
         {
           id: "cv_0001",
+          interactionId: "INT-SOC-20260520-00042",
           channel: "instagram",
           intent: "card_issue",
           status: "resolved",
           priority: "high",
           preview: "Card declined",
+          receivedAt: new Date("2026-05-20T09:00:00.000Z"),
           lastMessageAt: new Date("2026-05-20T12:00:00.000Z"),
+          assignedTo: {
+            id: "agt_1",
+            name: "Ana Ruiz",
+            teamId: "team_1",
+            teamName: "Payments",
+          },
         },
       ],
     });
     expect(dto.totalConversations).toBe(3);
     expect(dto.lastContactAt).toBe("2026-05-20T12:00:00.000Z");
     expect(dto.recent[0]?.lastMessageAt).toBe("2026-05-20T12:00:00.000Z");
+    expect(dto.recent[0]?.interactionId).toBe("INT-SOC-20260520-00042");
+    expect(dto.recent[0]?.receivedAt).toBe("2026-05-20T09:00:00.000Z");
+    expect(dto.recent[0]?.assignedTo?.name).toBe("Ana Ruiz");
   });
 });
 

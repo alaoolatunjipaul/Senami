@@ -45,6 +45,8 @@ function hasActiveFilters(query: InboxQuery): boolean {
     query.assigneeId !== "" ||
     query.teamId !== "" ||
     query.date !== "any" ||
+    query.dateFrom !== "" ||
+    query.dateTo !== "" ||
     query.search.trim() !== ""
   );
 }
@@ -92,6 +94,10 @@ export function InboxView() {
     setDebouncedSearch("");
   }, []);
 
+  const clearDates = useCallback(() => {
+    setFilters((previous) => ({ ...previous, date: "any", dateFrom: "", dateTo: "", page: 1 }));
+  }, []);
+
   // Keep the active filters in the URL when a conversation is selected, so the
   // deep link still resolves to the same bucket after a refresh.
   const select = useCallback(
@@ -118,19 +124,22 @@ export function InboxView() {
 
   return (
     <div className="flex h-full min-h-0">
-      <section className="border-line bg-surface flex min-h-0 w-[24rem] max-w-[45%] shrink-0 flex-col border-r">
-        <FilterBar
-          query={filters}
-          options={list.data?.options ?? null}
-          onPatch={updateFilters}
-          onClear={clearFilters}
-          searchValue={searchInput}
-          onSearchChange={setSearchInput}
-        />
+      <section className="border-line bg-surface flex min-h-0 w-[21rem] shrink-0 flex-col border-r lg:w-[23rem]">
+        <div className="border-line shrink-0 border-b">
+          <FilterBar
+            query={filters}
+            options={list.data?.options ?? null}
+            onPatch={updateFilters}
+            onClear={clearFilters}
+            onClearDates={clearDates}
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+          />
+        </div>
 
         <div className="border-line flex shrink-0 items-center justify-between border-b px-3 py-2">
           <p className="text-ink-secondary text-xs font-medium" data-numeric>
-            {total} {total === 1 ? "conversation" : "conversations"}
+            {total} {total === 1 ? "interaction" : "interactions"}
           </p>
           {hasActiveFilters(query) ? (
             <span className="text-ink-subtle text-[11px]">Filtered</span>

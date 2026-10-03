@@ -30,6 +30,8 @@ export function inboxQueryToSearchParams(query: InboxQuery): string {
   if (query.assigneeId !== "") params.set("assignee", query.assigneeId);
   if (query.teamId !== "") params.set("team", query.teamId);
   if (query.date !== "any") params.set("date", query.date);
+  if (query.dateFrom !== "") params.set("from", query.dateFrom);
+  if (query.dateTo !== "") params.set("to", query.dateTo);
   if (query.search.trim() !== "") params.set("q", query.search.trim());
   params.set("page", String(query.page ?? 1));
   params.set("pageSize", String(query.pageSize ?? DEFAULT_PAGE_SIZE));

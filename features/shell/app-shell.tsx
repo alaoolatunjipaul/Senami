@@ -50,7 +50,13 @@ export function AppShell({
                 <ProfileMenu session={session} onSignOut={onSignOut} />
               </div>
             </header>
-            <main className="scrollbar-slim min-h-0 flex-1 overflow-y-auto">{children}</main>
+            {/*
+              `main` is a flex column that never scrolls itself: every workspace
+              owns exactly one scroll region, which is what lets the inbox give
+              the interaction list, the conversation and the customer context
+              their own independent scroll without the page scrolling underneath.
+            */}
+            <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
           </div>
         </div>
       </div>
