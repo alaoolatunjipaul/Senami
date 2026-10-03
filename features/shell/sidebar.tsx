@@ -70,10 +70,11 @@ export function Sidebar({ role, counts }: SidebarProps) {
 
       <div className="border-line border-t p-3">
         <div className="bg-canvas border-line rounded-md border p-3">
-          <p className="text-ink-secondary text-xs font-semibold">Integration mode</p>
+          <p className="text-ink-secondary text-xs font-semibold">Integration architecture</p>
           <p className="text-ink-muted mt-0.5 text-[11px] leading-relaxed">
-            All social channels are simulated. Live connections appear here when credentials are
-            configured.
+            Provider boundaries: CRM, AI, Knowledge, Identity, Messaging, Audit, Customer, Interaction.
+            <span className="block mt-1">Mode: <span className="text-warning font-medium">DEMO / MOCK</span> (no production credentials).</span>
+            <span className="block mt-1">Ready for Microsoft Entra ID, Microsoft Graph, SharePoint, Microsoft Teams, Dataverse, Azure OpenAI, Azure AI Search, Azure API Management when configured.</span>
           </p>
         </div>
       </div>
