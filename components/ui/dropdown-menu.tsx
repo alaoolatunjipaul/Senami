@@ -136,6 +136,34 @@ function CheckGlyph() {
   );
 }
 
+export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
+
+/** A radio-style menu item, for single-choice controls such as appearance. */
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      className={cn(
+        itemClasses,
+        "relative cursor-pointer py-1.5 pr-8 pl-7",
+        "data-[highlighted]:bg-surface-muted",
+        className,
+      )}
+      {...props}
+    >
+      <span className="absolute left-2 flex size-3.5 items-center justify-center">
+        <DropdownMenuPrimitive.ItemIndicator>
+          <CheckGlyph />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenuPrimitive.RadioItem>
+  );
+}
+
 export interface DropdownMenuActionProps {
   label: string;
   icon?: ReactNode;

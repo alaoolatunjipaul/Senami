@@ -7,15 +7,32 @@
    generated utilities (bg-surface, text-ink, border-line, ...) so that no
    arbitrary colour, radius or shadow is ever hard-coded in a component.
 
-   Principles (spec section 8):
+   Structure:
+     1. `@theme`        - values that do not change with the theme (type, radii,
+                          spacing scale, motion).
+     2. `@theme inline` - semantic names that resolve through a CSS variable, so
+                          the Light/Dark/System switch is a variable swap rather
+                          than a rebuild. `--color-*: initial` deletes Tailwind's
+                          stock palette: a colour that is not defined here does
+                          not exist as a utility, which is what keeps the surface
+                          language semantic instead of incidental.
+     3. Palettes        - the raw per-theme values behind those variables.
+
+   Principles:
    - Calm, operational, information-dense. Built for scanning, not decoration.
-   - Cool neutrals, dark text, one blue action colour, and a small set of
-     semantic colours that always mean the same thing.
-   - Restrained radii (max 8px) and shadows. No gradients, no glassmorphism.
-   - Status is never communicated by colour alone (see status-* tokens, which
-     are always paired with a label or shape in the component).
+   - Cool neutrals, one blue action colour, and semantic colours that always
+     mean the same thing.
+   - Restrained radii (max 12px) and shadows. No gradients, no glassmorphism.
+   - Status is never communicated by colour alone; every colour is paired with a
+     label or shape in the component.
    ========================================================================== */
 
+/* Explicit opt-in for dark styling inside components (`dark:` utilities). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* --------------------------------------------------------------------------
+   1. Theme-invariant tokens
+   -------------------------------------------------------------------------- */
 @theme {
   /* --- Typography ------------------------------------------------------- */
   --font-sans:
@@ -25,139 +42,515 @@
     "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
     monospace;
 
-  /* --- Cool neutral surfaces & text ------------------------------------- */
-  --color-canvas: #ffffff;
-  --color-canvas-subtle: #f6f8fa;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f2f5f8;
-  --color-surface-hover: #eef2f6;
-  --color-surface-sunken: #eaeff4;
-
-  --color-ink: #101828;
-  --color-ink-secondary: #344054;
-  --color-ink-muted: #667085;
-  --color-ink-subtle: #98a2b3;
-  --color-ink-inverse: #ffffff;
-
-  --color-line: #e4e7ec;
-  --color-line-strong: #cfd4dc;
-  --color-line-strongest: #98a2b3;
-
-  /* --- Brand / primary action (blue) ------------------------------------ */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-active: #1e40af;
-  --color-primary-subtle: #eff6ff;
-  --color-primary-muted: #dbeafe;
-  --color-primary-ink: #1e3a8a;
-
-  /* --- Semantic status colours ------------------------------------------ */
-  --color-success: #067647;
-  --color-success-subtle: #ecfdf3;
-  --color-success-muted: #abefc6;
-
-  --color-warning: #b54708;
-  --color-warning-subtle: #fffaeb;
-  --color-warning-muted: #fedf89;
-
-  --color-critical: #b42318;
-  --color-critical-hover: #912018;
-  --color-critical-subtle: #fef3f2;
-  --color-critical-muted: #fecdca;
-
-  --color-info: #175cd3;
-  --color-info-subtle: #eff8ff;
-  --color-info-muted: #b2ddff;
-
-  --color-neutral: #475467;
-  --color-neutral-subtle: #f2f4f7;
-  --color-neutral-muted: #e4e7ec;
-
-  --color-ai: #6941c6;
-  --color-ai-subtle: #f4f3ff;
-  --color-ai-muted: #d9d6fe;
-
-  /* --- Message visibility (the core domain distinction, spec section 3) -- */
-  --color-visibility-public: #175cd3;
-  --color-visibility-public-subtle: #eff8ff;
-  --color-visibility-public-muted: #b2ddff;
-
-  --color-visibility-private: #6941c6;
-  --color-visibility-private-subtle: #f4f3ff;
-  --color-visibility-private-muted: #d9d6fe;
-
-  --color-visibility-internal: #b54708;
-  --color-visibility-internal-subtle: #fffaeb;
-  --color-visibility-internal-muted: #fedf89;
-
-  --color-visibility-system: #475467;
-  --color-visibility-system-subtle: #f2f4f7;
-  --color-visibility-system-muted: #e4e7ec;
-
-  /* --- Priority ---------------------------------------------------------- */
-  --color-priority-critical: #b42318;
-  --color-priority-critical-subtle: #fef3f2;
-  --color-priority-high: #c4320a;
-  --color-priority-high-subtle: #fff4ed;
-  --color-priority-medium: #b54708;
-  --color-priority-medium-subtle: #fffaeb;
-  --color-priority-low: #175cd3;
-  --color-priority-low-subtle: #eff8ff;
-  --color-priority-normal: #475467;
-  --color-priority-normal-subtle: #f2f4f7;
-
-  /* --- Sentiment --------------------------------------------------------- */
-  --color-sentiment-positive: #067647;
-  --color-sentiment-positive-subtle: #ecfdf3;
-  --color-sentiment-neutral: #475467;
-  --color-sentiment-neutral-subtle: #f2f4f7;
-  --color-sentiment-frustrated: #b54708;
-  --color-sentiment-frustrated-subtle: #fffaeb;
-  --color-sentiment-angry: #b42318;
-  --color-sentiment-angry-subtle: #fef3f2;
-  --color-sentiment-urgent: #c4320a;
-  --color-sentiment-urgent-subtle: #fff4ed;
-
-  /* --- SLA states -------------------------------------------------------- */
-  --color-sla-safe: #067647;
-  --color-sla-warning: #b54708;
-  --color-sla-breached: #b42318;
-  --color-sla-met: #067647;
-  --color-sla-paused: #667085;
-
-  /* --- Conversation / case status ---------------------------------------- */
-  --color-status-open: #175cd3;
-  --color-status-pending: #b54708;
-  --color-status-awaiting-customer: #6941c6;
-  --color-status-escalated: #b42318;
-  --color-status-resolved: #067647;
-  --color-status-closed: #475467;
-
-  /* --- Social channels (spec section 4) ---------------------------------- */
-  --color-channel-instagram: #d62976;
-  --color-channel-facebook: #1877f2;
-  --color-channel-x: #101828;
-  --color-channel-tiktok: #0f9488;
-
   /* --- Radii (restrained: operational, not playful) ---------------------- */
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 9999px;
 
-  /* --- Shadows (restrained; depth only where something floats) ----------- */
-  --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(16 24 40 / 0.1), 0 1px 2px -1px rgb(16 24 40 / 0.06);
-  --shadow-md: 0 4px 8px -2px rgb(16 24 40 / 0.1), 0 2px 4px -2px rgb(16 24 40 / 0.06);
-  --shadow-lg: 0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.03);
-  --shadow-focus: 0 0 0 3px rgb(37 99 235 / 0.35);
+  /* --- Density ----------------------------------------------------------
+     One shared control scale so every list, filter and composer agrees on
+     height. `comfortable` is the default; `compact` is used by dense
+     operational tables. Values live in the spacing namespace so they generate
+     utilities (h-control-md, px-row-md, ...).
+     ---------------------------------------------------------------------- */
+  --spacing-control-sm: 1.75rem;
+  --spacing-control-md: 2.25rem;
+  --spacing-row-sm: 2rem;
+  --spacing-row-md: 2.75rem;
 
   /* --- Motion (minimal and purposeful) ----------------------------------- */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-instant: 80ms;
   --duration-fast: 120ms;
   --duration-normal: 180ms;
+}
+
+/* --------------------------------------------------------------------------
+   2. Semantic tokens
+   --------------------------------------------------------------------------
+   Every name below maps to a variable defined in section 3, so switching theme
+   re-points the variables and nothing else changes.
+   -------------------------------------------------------------------------- */
+@theme inline {
+  /* The stock palette is not part of this design language. */
+  --color-*: initial;
+
+  /* --- Surfaces ---------------------------------------------------------- */
+  --color-canvas: var(--canvas);
+  --color-canvas-subtle: var(--canvas-subtle);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-overlay: var(--overlay);
+
+  /* --- Text -------------------------------------------------------------- */
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-ink-on-primary: var(--ink-on-primary);
+
+  /* --- Borders & focus --------------------------------------------------- */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-strongest: var(--line-strongest);
+
+  /* --- Brand / primary action -------------------------------------------- */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-muted: var(--primary-muted);
+  --color-primary-ink: var(--primary-ink);
+
+  /* --- Semantic status --------------------------------------------------- */
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-muted: var(--success-muted);
+
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-muted: var(--warning-muted);
+
+  --color-critical: var(--critical);
+  --color-critical-hover: var(--critical-hover);
+  --color-critical-subtle: var(--critical-subtle);
+  --color-critical-muted: var(--critical-muted);
+
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-muted: var(--info-muted);
+
+  --color-neutral: var(--neutral);
+  --color-neutral-subtle: var(--neutral-subtle);
+  --color-neutral-muted: var(--neutral-muted);
+
+  /* --- AI ---------------------------------------------------------------- */
+  --color-ai: var(--ai);
+  --color-ai-subtle: var(--ai-subtle);
+  --color-ai-muted: var(--ai-muted);
+
+  /* --- AI response states (grounding, confidence, approval) --------------- */
+  --color-grounded: var(--grounded);
+  --color-grounded-subtle: var(--grounded-subtle);
+  --color-grounded-muted: var(--grounded-muted);
+
+  --color-needs-verification: var(--needs-verification);
+  --color-needs-verification-subtle: var(--needs-verification-subtle);
+  --color-needs-verification-muted: var(--needs-verification-muted);
+
+  --color-low-confidence: var(--low-confidence);
+  --color-low-confidence-subtle: var(--low-confidence-subtle);
+  --color-low-confidence-muted: var(--low-confidence-muted);
+
+  --color-no-source: var(--no-source);
+  --color-no-source-subtle: var(--no-source-subtle);
+  --color-no-source-muted: var(--no-source-muted);
+
+  /* --- Action risk ------------------------------------------------------- */
+  --color-risk-low: var(--risk-low);
+  --color-risk-low-subtle: var(--risk-low-subtle);
+  --color-risk-medium: var(--risk-medium);
+  --color-risk-medium-subtle: var(--risk-medium-subtle);
+  --color-risk-high: var(--risk-high);
+  --color-risk-high-subtle: var(--risk-high-subtle);
+
+  /* --- Message visibility ------------------------------------------------ */
+  --color-visibility-public: var(--visibility-public);
+  --color-visibility-public-subtle: var(--visibility-public-subtle);
+  --color-visibility-public-muted: var(--visibility-public-muted);
+
+  --color-visibility-private: var(--visibility-private);
+  --color-visibility-private-subtle: var(--visibility-private-subtle);
+  --color-visibility-private-muted: var(--visibility-private-muted);
+
+  --color-visibility-internal: var(--visibility-internal);
+  --color-visibility-internal-subtle: var(--visibility-internal-subtle);
+  --color-visibility-internal-muted: var(--visibility-internal-muted);
+
+  --color-visibility-system: var(--visibility-system);
+  --color-visibility-system-subtle: var(--visibility-system-subtle);
+  --color-visibility-system-muted: var(--visibility-system-muted);
+
+  /* --- Priority ---------------------------------------------------------- */
+  --color-priority-critical: var(--priority-critical);
+  --color-priority-critical-subtle: var(--priority-critical-subtle);
+  --color-priority-high: var(--priority-high);
+  --color-priority-high-subtle: var(--priority-high-subtle);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-medium-subtle: var(--priority-medium-subtle);
+  --color-priority-low: var(--priority-low);
+  --color-priority-low-subtle: var(--priority-low-subtle);
+  --color-priority-normal: var(--priority-normal);
+  --color-priority-normal-subtle: var(--priority-normal-subtle);
+
+  /* --- Sentiment --------------------------------------------------------- */
+  --color-sentiment-positive: var(--sentiment-positive);
+  --color-sentiment-positive-subtle: var(--sentiment-positive-subtle);
+  --color-sentiment-neutral: var(--sentiment-neutral);
+  --color-sentiment-neutral-subtle: var(--sentiment-neutral-subtle);
+  --color-sentiment-frustrated: var(--sentiment-frustrated);
+  --color-sentiment-frustrated-subtle: var(--sentiment-frustrated-subtle);
+  --color-sentiment-angry: var(--sentiment-angry);
+  --color-sentiment-angry-subtle: var(--sentiment-angry-subtle);
+  --color-sentiment-urgent: var(--sentiment-urgent);
+  --color-sentiment-urgent-subtle: var(--sentiment-urgent-subtle);
+
+  /* --- SLA states -------------------------------------------------------- */
+  --color-sla-safe: var(--sla-safe);
+  --color-sla-warning: var(--sla-warning);
+  --color-sla-breached: var(--sla-breached);
+  --color-sla-met: var(--sla-met);
+  --color-sla-paused: var(--sla-paused);
+
+  /* --- Conversation / case status ---------------------------------------- */
+  --color-status-open: var(--status-open);
+  --color-status-pending: var(--status-pending);
+  --color-status-awaiting-customer: var(--status-awaiting-customer);
+  --color-status-escalated: var(--status-escalated);
+  --color-status-resolved: var(--status-resolved);
+  --color-status-closed: var(--status-closed);
+
+  /* --- Social channels --------------------------------------------------- */
+  --color-channel-instagram: var(--channel-instagram);
+  --color-channel-facebook: var(--channel-facebook);
+  --color-channel-x: var(--channel-x);
+  --color-channel-tiktok: var(--channel-tiktok);
+
+  /* --- Elevation (theme-dependent: shadows read differently on dark) ----- */
+  --shadow-xs: var(--shadow-color-xs);
+  --shadow-sm: var(--shadow-color-sm);
+  --shadow-md: var(--shadow-color-md);
+  --shadow-lg: var(--shadow-color-lg);
+  --shadow-xl: var(--shadow-color-xl);
+}
+
+/* --------------------------------------------------------------------------
+   3. Palettes
+   --------------------------------------------------------------------------
+   Light is the default; `.dark` on <html> re-points every variable. Applied
+   before first paint by the inline script in the root layout, so there is no
+   flash of the wrong theme.
+   -------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --canvas: #ffffff;
+  --canvas-subtle: #f6f8fa;
+  --surface: #ffffff;
+  --surface-muted: #f2f5f8;
+  --surface-hover: #eef2f6;
+  --surface-sunken: #eaeff4;
+  --surface-inverse: #101828;
+  --overlay: rgb(16 24 40 / 0.45);
+
+  /* Text */
+  --ink: #101828;
+  --ink-secondary: #344054;
+  --ink-muted: #667085;
+  --ink-subtle: #98a2b3;
+  --ink-inverse: #ffffff;
+  --ink-on-primary: #ffffff;
+
+  /* Borders */
+  --line: #e4e7ec;
+  --line-strong: #cfd4dc;
+  --line-strongest: #98a2b3;
+
+  /* Primary action */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-subtle: #eff6ff;
+  --primary-muted: #dbeafe;
+  --primary-ink: #1e3a8a;
+
+  /* Status */
+  --success: #067647;
+  --success-subtle: #ecfdf3;
+  --success-muted: #abefc6;
+
+  --warning: #b54708;
+  --warning-subtle: #fffaeb;
+  --warning-muted: #fedf89;
+
+  --critical: #b42318;
+  --critical-hover: #912018;
+  --critical-subtle: #fef3f2;
+  --critical-muted: #fecdca;
+
+  --info: #175cd3;
+  --info-subtle: #eff8ff;
+  --info-muted: #b2ddff;
+
+  --neutral: #475467;
+  --neutral-subtle: #f2f4f7;
+  --neutral-muted: #e4e7ec;
+
+  /* AI */
+  --ai: #6941c6;
+  --ai-subtle: #f4f3ff;
+  --ai-muted: #d9d6fe;
+
+  /* AI response states */
+  --grounded: #067647;
+  --grounded-subtle: #ecfdf3;
+  --grounded-muted: #abefc6;
+
+  --needs-verification: #b54708;
+  --needs-verification-subtle: #fffaeb;
+  --needs-verification-muted: #fedf89;
+
+  --low-confidence: #b42318;
+  --low-confidence-subtle: #fef3f2;
+  --low-confidence-muted: #fecdca;
+
+  --no-source: #475467;
+  --no-source-subtle: #f2f4f7;
+  --no-source-muted: #e4e7ec;
+
+  /* Action risk */
+  --risk-low: #067647;
+  --risk-low-subtle: #ecfdf3;
+  --risk-medium: #b54708;
+  --risk-medium-subtle: #fffaeb;
+  --risk-high: #b42318;
+  --risk-high-subtle: #fef3f2;
+
+  /* Visibility */
+  --visibility-public: #175cd3;
+  --visibility-public-subtle: #eff8ff;
+  --visibility-public-muted: #b2ddff;
+
+  --visibility-private: #6941c6;
+  --visibility-private-subtle: #f4f3ff;
+  --visibility-private-muted: #d9d6fe;
+
+  --visibility-internal: #b54708;
+  --visibility-internal-subtle: #fffaeb;
+  --visibility-internal-muted: #fedf89;
+
+  --visibility-system: #475467;
+  --visibility-system-subtle: #f2f4f7;
+  --visibility-system-muted: #e4e7ec;
+
+  /* Priority */
+  --priority-critical: #b42318;
+  --priority-critical-subtle: #fef3f2;
+  --priority-high: #c4320a;
+  --priority-high-subtle: #fff4ed;
+  --priority-medium: #b54708;
+  --priority-medium-subtle: #fffaeb;
+  --priority-low: #175cd3;
+  --priority-low-subtle: #eff8ff;
+  --priority-normal: #475467;
+  --priority-normal-subtle: #f2f4f7;
+
+  /* Sentiment */
+  --sentiment-positive: #067647;
+  --sentiment-positive-subtle: #ecfdf3;
+  --sentiment-neutral: #475467;
+  --sentiment-neutral-subtle: #f2f4f7;
+  --sentiment-frustrated: #b54708;
+  --sentiment-frustrated-subtle: #fffaeb;
+  --sentiment-angry: #b42318;
+  --sentiment-angry-subtle: #fef3f2;
+  --sentiment-urgent: #c4320a;
+  --sentiment-urgent-subtle: #fff4ed;
+
+  /* SLA */
+  --sla-safe: #067647;
+  --sla-warning: #b54708;
+  --sla-breached: #b42318;
+  --sla-met: #067647;
+  --sla-paused: #667085;
+
+  /* Status */
+  --status-open: #175cd3;
+  --status-pending: #b54708;
+  --status-awaiting-customer: #6941c6;
+  --status-escalated: #b42318;
+  --status-resolved: #067647;
+  --status-closed: #475467;
+
+  /* Channels */
+  --channel-instagram: #d62976;
+  --channel-facebook: #1877f2;
+  --channel-x: #101828;
+  --channel-tiktok: #0f9488;
+
+  /* Elevation */
+  --shadow-color-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+  --shadow-color-sm: 0 1px 3px 0 rgb(16 24 40 / 0.1), 0 1px 2px -1px rgb(16 24 40 / 0.06);
+  --shadow-color-md: 0 4px 8px -2px rgb(16 24 40 / 0.1), 0 2px 4px -2px rgb(16 24 40 / 0.06);
+  --shadow-color-lg:
+    0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.03);
+  --shadow-color-xl:
+    0 20px 24px -4px rgb(16 24 40 / 0.1), 0 8px 8px -4px rgb(16 24 40 / 0.04);
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px rgb(37 99 235 / 0.35);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /*
+   * Dark surfaces are stepped rather than inverted: a near-black canvas, a
+   * slightly lifted surface, and progressively recessed wells. Borders carry
+   * more of the structure that shadows do in light mode.
+   */
+  --canvas: #0c111a;
+  --canvas-subtle: #0e141f;
+  --surface: #121926;
+  --surface-muted: #172032;
+  --surface-hover: #1d2739;
+  --surface-sunken: #090e16;
+  --surface-inverse: #e7edf6;
+  --overlay: rgb(3 6 12 / 0.66);
+
+  --ink: #e7edf6;
+  --ink-secondary: #c3cfdf;
+  --ink-muted: #94a3b8;
+  --ink-subtle: #6d7d94;
+  --ink-inverse: #0c111a;
+  --ink-on-primary: #ffffff;
+
+  --line: #223047;
+  --line-strong: #2f3f59;
+  --line-strongest: #4a5b76;
+
+  --primary: #4f8ef7;
+  --primary-hover: #6ba1f9;
+  --primary-active: #3b7ce8;
+  --primary-subtle: #16243c;
+  --primary-muted: #1e3a63;
+  --primary-ink: #a9c8fd;
+
+  --success: #34d399;
+  --success-subtle: #0d2a20;
+  --success-muted: #1d5340;
+
+  --warning: #fbbf24;
+  --warning-subtle: #2a2110;
+  --warning-muted: #55420f;
+
+  --critical: #f87171;
+  --critical-hover: #fca5a5;
+  --critical-subtle: #2c1416;
+  --critical-muted: #5b2226;
+
+  --info: #60a5fa;
+  --info-subtle: #12233c;
+  --info-muted: #1f3c63;
+
+  --neutral: #94a3b8;
+  --neutral-subtle: #17202e;
+  --neutral-muted: #2b3648;
+
+  --ai: #a78bfa;
+  --ai-subtle: #1c1633;
+  --ai-muted: #362a5e;
+
+  --grounded: #34d399;
+  --grounded-subtle: #0d2a20;
+  --grounded-muted: #1d5340;
+
+  --needs-verification: #fbbf24;
+  --needs-verification-subtle: #2a2110;
+  --needs-verification-muted: #55420f;
+
+  --low-confidence: #f87171;
+  --low-confidence-subtle: #2c1416;
+  --low-confidence-muted: #5b2226;
+
+  --no-source: #94a3b8;
+  --no-source-subtle: #17202e;
+  --no-source-muted: #2b3648;
+
+  --risk-low: #34d399;
+  --risk-low-subtle: #0d2a20;
+  --risk-medium: #fbbf24;
+  --risk-medium-subtle: #2a2110;
+  --risk-high: #f87171;
+  --risk-high-subtle: #2c1416;
+
+  --visibility-public: #60a5fa;
+  --visibility-public-subtle: #12233c;
+  --visibility-public-muted: #1f3c63;
+
+  --visibility-private: #a78bfa;
+  --visibility-private-subtle: #1c1633;
+  --visibility-private-muted: #362a5e;
+
+  --visibility-internal: #fbbf24;
+  --visibility-internal-subtle: #2a2110;
+  --visibility-internal-muted: #55420f;
+
+  --visibility-system: #94a3b8;
+  --visibility-system-subtle: #17202e;
+  --visibility-system-muted: #2b3648;
+
+  --priority-critical: #f87171;
+  --priority-critical-subtle: #2c1416;
+  --priority-high: #fb923c;
+  --priority-high-subtle: #2c1a10;
+  --priority-medium: #fbbf24;
+  --priority-medium-subtle: #2a2110;
+  --priority-low: #60a5fa;
+  --priority-low-subtle: #12233c;
+  --priority-normal: #94a3b8;
+  --priority-normal-subtle: #17202e;
+
+  --sentiment-positive: #34d399;
+  --sentiment-positive-subtle: #0d2a20;
+  --sentiment-neutral: #94a3b8;
+  --sentiment-neutral-subtle: #17202e;
+  --sentiment-frustrated: #fbbf24;
+  --sentiment-frustrated-subtle: #2a2110;
+  --sentiment-angry: #f87171;
+  --sentiment-angry-subtle: #2c1416;
+  --sentiment-urgent: #fb923c;
+  --sentiment-urgent-subtle: #2c1a10;
+
+  --sla-safe: #34d399;
+  --sla-warning: #fbbf24;
+  --sla-breached: #f87171;
+  --sla-met: #34d399;
+  --sla-paused: #94a3b8;
+
+  --status-open: #60a5fa;
+  --status-pending: #fbbf24;
+  --status-awaiting-customer: #a78bfa;
+  --status-escalated: #f87171;
+  --status-resolved: #34d399;
+  --status-closed: #94a3b8;
+
+  --channel-instagram: #f472b6;
+  --channel-facebook: #60a5fa;
+  --channel-x: #c3cfdf;
+  --channel-tiktok: #2dd4bf;
+
+  /*
+   * Shadows in dark mode describe separation against a dark field: deeper,
+   * lower-opacity, and paired with the stronger borders above.
+   */
+  --shadow-color-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-color-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-color-md: 0 4px 8px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-color-lg: 0 12px 16px -4px rgb(0 0 0 / 0.55), 0 4px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-color-xl: 0 20px 24px -4px rgb(0 0 0 / 0.6), 0 8px 8px -4px rgb(0 0 0 / 0.45);
+
+  --focus-ring: 0 0 0 3px rgb(79 142 247 / 0.45);
 }
 
 @layer base {
@@ -166,19 +559,18 @@
    * an application that is used all day by keyboard operators.
    */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--primary);
     outline-offset: 2px;
     border-radius: var(--radius-xs);
   }
 
   html {
     -webkit-text-size-adjust: 100%;
-    color-scheme: light;
   }
 
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-ink);
+    background-color: var(--canvas);
+    color: var(--ink);
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
   }
@@ -189,8 +581,19 @@
   }
 
   ::selection {
-    background-color: var(--color-primary-muted);
-    color: var(--color-primary-ink);
+    background-color: var(--primary-muted);
+    color: var(--primary-ink);
+  }
+
+  /*
+   * Form controls and scrollbars inherit the theme rather than staying stuck
+   * on the operating system light rendering inside a dark workspace.
+   */
+  input,
+  textarea,
+  select,
+  button {
+    color: inherit;
   }
 
   /* Respect users who have asked for less motion. */
@@ -204,6 +607,15 @@
       scroll-behavior: auto !important;
     }
   }
+
+  /* The theme switch is a preference, not a transition spectacle. */
+  @media (prefers-reduced-motion: no-preference) {
+    html.theme-ready body {
+      transition:
+        background-color var(--duration-normal) var(--ease-out-quart),
+        color var(--duration-normal) var(--ease-out-quart);
+    }
+  }
 }
 
 @layer components {
@@ -213,7 +625,7 @@
    */
   .scrollbar-slim {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-color: var(--line-strong) transparent;
   }
 
   .scrollbar-slim::-webkit-scrollbar {
@@ -226,11 +638,11 @@
   }
 
   .scrollbar-slim::-webkit-scrollbar-thumb {
-    background-color: var(--color-line-strong);
+    background-color: var(--line-strong);
     border-radius: var(--radius-full);
   }
 
   .scrollbar-slim::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-line-strongest);
+    background-color: var(--line-strongest);
   }
 }

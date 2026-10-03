@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ROLE_LABELS, type Session } from "@/lib/domain/user";
 
+import { AppearanceMenuGroup } from "./appearance-menu";
+
 /**
  * Profile menu in the header.
  *
@@ -71,6 +73,7 @@ export function ProfileMenu({ session, onSignOut, className }: ProfileMenuProps)
           <Badge tone="neutral">{ROLE_LABELS[user.role]}</Badge>
         </div>
         <DropdownMenuSeparator />
+        <AppearanceMenuGroup />
         {onSignOut ? (
           <DropdownMenuAction
             label="Sign out"

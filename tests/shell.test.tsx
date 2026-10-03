@@ -144,6 +144,30 @@ describe("ProfileMenu", () => {
     await user.click(screen.getByText("Sign out"));
     expect(onSignOut).toHaveBeenCalledOnce();
   });
+
+  it("offers Light, Dark and System appearance with the choice persisted", async () => {
+    const user = userEvent.setup();
+    render(<ProfileMenu session={session()} />);
+
+    await user.click(screen.getByRole("button", { name: "Account menu for Maya Keller" }));
+
+    // Three real choices, not a two-state toggle: "system" is its own option.
+    expect(screen.getByRole("menuitemradio", { name: /Light/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /Dark/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /System/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitemradio", { name: /Dark/ }));
+
+    expect(screen.getByRole("menuitemradio", { name: /Dark/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    // The menu must stay open so the three themes can be compared in place.
+    expect(screen.getByRole("menuitemradio", { name: /Light/ })).toBeInTheDocument();
+    expect(window.localStorage.getItem("senami.theme")).toBe("dark");
+    // Dark must actually paint: the token set is keyed off this class.
+    expect(document.documentElement).toHaveClass("dark");
+  });
 });
 
 describe("AppShell", () => {
