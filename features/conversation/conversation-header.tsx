@@ -6,7 +6,6 @@ import {
   History,
   Lock,
   MailOpen,
-  PanelRightClose,
   ShieldAlert,
   Sparkles,
   StickyNote,
@@ -50,11 +49,9 @@ export interface ConversationHeaderProps {
   /** Phase 8: resolving or reopening the conversation. */
   canResolve: boolean;
   onSetRead: (read: boolean) => void;
+  /** Opens customer context as an overlay drawer. */
   onShowCustomerHistory: () => void;
   onShowConversationHistory: () => void;
-  /** Docked customer context pane visibility; omitted when it cannot be shown. */
-  onToggleContextPane?: () => void;
-  contextPaneVisible?: boolean;
   onAssign: () => void;
   onEscalate: () => void;
   onMoveToPrivate: () => void;
@@ -77,8 +74,6 @@ export function ConversationHeader({
   onSetRead,
   onShowCustomerHistory,
   onShowConversationHistory,
-  onToggleContextPane,
-  contextPaneVisible = false,
   onAssign,
   onEscalate,
   onMoveToPrivate,
@@ -94,11 +89,11 @@ export function ConversationHeader({
 
   return (
     <header className="border-line bg-surface shrink-0 border-b">
-      <div className="flex items-start gap-3 px-5 py-4">
-        <Avatar name={conversation.customer.name} size="lg" />
+      <div className="flex items-start gap-2.5 px-4 py-2">
+        <Avatar name={conversation.customer.name} size="md" />
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <h2 className="text-ink truncate text-sm font-semibold">
               {conversation.customer.name}
             </h2>
@@ -107,14 +102,17 @@ export function ConversationHeader({
             </span>
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span
-              className="border-line bg-surface-muted text-ink-secondary inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] font-medium"
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              className="border-line bg-surface-muted text-ink-secondary hover:bg-surface-strong inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] font-medium transition-colors"
               data-numeric
-              title="Interaction ID - quote this to the customer"
+              title="Copy Interaction ID"
+              onClick={() => navigator.clipboard?.writeText(interactionReference(conversation))}
+              aria-label={`Copy Interaction ID ${interactionReference(conversation)}`}
             >
               {interactionReference(conversation)}
-            </span>
+            </button>
             {interactionReference(conversation) !== conversation.id ? (
               <span className="text-ink-subtle font-mono text-[11px]" data-numeric>
                 {conversation.id}
@@ -122,19 +120,14 @@ export function ConversationHeader({
             ) : null}
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
             <Badge tone={status.tone} size="sm" srPrefix="Status">
               {status.label}
-            </Badge>
-            <Badge tone="neutral" size="sm" srPrefix="Intent">
-              {INTENT_META[conversation.intent]}
-            </Badge>
-            <Badge tone={sentiment.tone} size="sm" srPrefix="Sentiment">
-              {sentiment.label}
             </Badge>
             <Badge tone={priority.tone} size="sm" srPrefix="Priority">
               {priority.label}
             </Badge>
+            <SLAIndicator evaluation={sla} compact className="inline-flex items-center text-xs" />
             <Badge tone={conversation.assignedTo ? "info" : "neutral"} size="sm" srPrefix="Assignment">
               {conversation.assignedTo
                 ? `Assigned · ${conversation.assignedTo.name}`
@@ -146,8 +139,14 @@ export function ConversationHeader({
               </Badge>
             ) : null}
           </div>
-
-          <SLAIndicator evaluation={sla} className="mt-2 text-xs" />
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            <Badge tone="neutral" size="sm" srPrefix="Intent">
+              {INTENT_META[conversation.intent]}
+            </Badge>
+            <Badge tone={sentiment.tone} size="sm" srPrefix="Sentiment">
+              {sentiment.label}
+            </Badge>
+          </div>
         </div>
 
         <Button
@@ -170,34 +169,15 @@ export function ConversationHeader({
         </Button>
       </div>
 
-      <div className="border-line flex flex-wrap items-center gap-1.5 border-t px-5 py-2">
+      <div className="border-line flex flex-wrap items-center gap-1 border-t px-3 py-1.5">
         <Button variant="ghost" size="sm" onClick={onShowAiAssist} disabled={!canUseAi}>
           <Sparkles className="text-ai size-3.5" aria-hidden="true" />
           AI Assist
         </Button>
         <Button variant="ghost" size="sm" onClick={onShowCustomerHistory}>
           <UserRound className="size-3.5" aria-hidden="true" />
-          Customer Context
+          Customer context
         </Button>
-        {onToggleContextPane ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleContextPane}
-            aria-pressed={contextPaneVisible}
-            title={
-              contextPaneVisible
-                ? "Hide the customer context pane"
-                : "Show the customer context pane"
-            }
-          >
-            <PanelRightClose
-              className="size-3.5"
-              aria-hidden="true"
-            />
-            {contextPaneVisible ? "Hide context" : "Show context"}
-          </Button>
-        ) : null}
         <Button variant="ghost" size="sm" onClick={onShowConversationHistory}>
           <History className="size-3.5" aria-hidden="true" />
           Conversation History

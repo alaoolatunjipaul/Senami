@@ -94,7 +94,7 @@ describe("ConversationHeader", () => {
     expect(screen.getByRole("button", { name: /escalate/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /move to private/i })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /customer history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /customer context/i }));
     fireEvent.click(screen.getByRole("button", { name: /conversation history/i }));
     fireEvent.click(screen.getByRole("button", { name: /add note/i }));
 

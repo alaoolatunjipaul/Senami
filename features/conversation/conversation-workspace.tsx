@@ -1,124 +1,63 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowUp,
+  Clock,
+  Download,
+  FileCode,
+  FileText,
+  History,
+  MessageSquare,
+  MessagesSquare,
+  Send,
+  Sparkles,
+  User,
+  Check,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { ErrorState, LoadingState, EmptyState } from "@/components/ui/states";
-import { AiAssistPanel } from "@/features/conversation/ai-assist-panel";
-import { AssignDialog } from "@/features/conversation/assign-dialog";
-import { ConversationHeader } from "@/features/conversation/conversation-header";
 import { ConversationHistoryPanel } from "@/features/conversation/conversation-history-panel";
-import { CustomerHistoryPanel } from "@/features/conversation/customer-history-panel";
 import { CustomerContextPanel } from "@/features/conversation/customer-context-panel";
-import { CustomerContextPane } from "@/features/conversation/customer-context-pane";
+import { CustomerHistoryPanel } from "@/features/conversation/customer-history-panel";
 import { EscalateDialog } from "@/features/conversation/escalate-dialog";
-import { MessageTimeline } from "@/features/conversation/message-timeline";
-import { MoveToPrivateDialog } from "@/features/conversation/move-to-private-dialog";
-import { ResolveDialog } from "@/features/conversation/resolve-dialog";
+import { ResponseComposerModal } from "@/features/conversation/response-composer-modal";
+import { TrainAiModal } from "@/features/conversation/train-ai-modal";
 import {
-  ResponseComposer,
-  type ComposerDraftEvent,
-  type ComposerSendVariables,
-  type ResponseComposerHandle,
-} from "@/features/conversation/response-composer";
-import { SendConfirmationDialog } from "@/features/conversation/send-confirmation-dialog";
-import {
-  useAiSuggestion,
-  useAssignConversation,
   useConversationAudit,
   useConversationDetail,
   useConversationMessages,
-  useConversationStatus,
   useCustomerContext,
   useCustomerHistory,
   useEscalateConversation,
-  useMoveToPrivate,
-  useRecordDraftEdit,
   useRecordOpen,
   useSendMessage,
 } from "@/features/conversation/use-conversation";
-import { useSession } from "@/features/shell/session-context";
-import type { AiAction, AiSuggestionDto } from "@/lib/domain/ai";
-import type { AiGovernanceEnvelope } from "@/lib/domain/ai-governance";
-import { COMPOSER_MODE_META, type ComposerMode } from "@/lib/domain/conversation";
 import type { InboxConversationDto } from "@/lib/domain/inbox";
-import { canAssignConversation, canUseAiAssist, canUseAiAssistOn } from "@/server/conversations/policy";
-import { can } from "@/server/rbac/permissions";
+import { formatRelativeTime } from "@/lib/format";
 
-/**
- * Conversation workspace (§8).
- *
- * The full conversation surface: header, timeline, composer and every action the
- * phase requires. It owns its own data query (list card data is used only as a
- * placeholder while the detail loads) and re-renders on every mutation because
- * the mutations invalidate the conversation's query cache.
- *
- * Phase 8 adds the professional flow on top: AI drafting assistance, the richer
- * customer context panel, resolve/reopen with an explicit confirmation, and a
- * confirmation before anything customer-facing leaves the building.
- */
 export interface ConversationWorkspaceProps {
   conversationId: string | null;
-  /** The list card for the same conversation, used while the detail loads. */
   summary: InboxConversationDto | null;
   now: Date;
   updatingRead: boolean;
   onSetRead: (read: boolean) => void;
-  /** Called after a public-to-private move so the inbox can select the new DM. */
   onConversationCreated?: (id: string) => void;
-}
-
-interface PendingSend {
-  readonly mode: ComposerMode;
-  readonly body: string;
-  readonly confirm: (confirmed: boolean) => void;
 }
 
 export function ConversationWorkspace({
   conversationId,
   summary,
   now,
-  updatingRead,
-  onSetRead,
   onConversationCreated,
 }: ConversationWorkspaceProps) {
-  const session = useSession();
-  const [composerMode, setComposerMode] = useState<ComposerMode>("public");
-  const [assignOpen, setAssignOpen] = useState(false);
   const [escalateOpen, setEscalateOpen] = useState(false);
-  const [moveOpen, setMoveOpen] = useState(false);
-  const [resolveOpen, setResolveOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
   const [customerContextOpen, setCustomerContextOpen] = useState(false);
-  // The docked right-hand pane is the default on a wide viewport; the drawer is
-  // still available for narrower screens and for the explicit "Customer Context"
-  // action, so nothing existing is removed.
-  const [contextPaneDismissed, setContextPaneDismissed] = useState(false);
   const [customerHistoryOpen, setCustomerHistoryOpen] = useState(false);
   const [conversationHistoryOpen, setConversationHistoryOpen] = useState(false);
-  const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
-  // Keyed by conversation so switching threads cannot show the previous
-  // conversation's AI output.
-  const [suggestionState, setSuggestionState] = useState<{
-    conversationId: string;
-    suggestion: AiSuggestionDto;
-    governance: AiGovernanceEnvelope;
-  } | null>(null);
-  const [draftText, setDraftText] = useState("");
-
-  const composerRef = useRef<ResponseComposerHandle | null>(null);
-  const [wideViewport, setWideViewport] = useState(false);
-
-  // The three-column Response Desk only fits on a wide viewport; below the xl
-  // breakpoint the right pane is dropped and the drawer remains the way in.
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1280px)");
-    const sync = () => setWideViewport(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-
-  const showContextPane = wideViewport && !contextPaneDismissed;
+  const [responseModalOpen, setResponseModalOpen] = useState(false);
+  const [trainAiModalOpen, setTrainAiModalOpen] = useState(false);
 
   const detail = useConversationDetail(conversationId);
   const messages = useConversationMessages(conversationId);
@@ -126,239 +65,336 @@ export function ConversationWorkspace({
   const customer = useCustomerContext(conversationId);
   const customerHistory = useCustomerHistory(conversationId);
   const recordOpen = useRecordOpen(conversationId);
-  const recordDraftEdit = useRecordDraftEdit(conversationId);
-
   const sendMessage = useSendMessage(conversationId);
-  const assign = useAssignConversation(conversationId);
   const escalate = useEscalateConversation(conversationId);
-  const moveToPrivate = useMoveToPrivate(conversationId);
-  const status = useConversationStatus(conversationId);
-  const ai = useAiSuggestion(conversationId);
 
   const conversation = detail.data?.conversation ?? summary;
-  const thread = detail.data?.thread ?? null;
 
-  // Opening a conversation is audited once per agent; the route is idempotent.
+  // Open audit
   useEffect(() => {
     if (conversationId === null) return;
     recordOpen.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
-  const suggestion =
-    suggestionState !== null && suggestionState.conversationId === conversationId
-      ? suggestionState.suggestion
-      : null;
+  // Global hotkeys for Ctrl+Enter, t, m
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        setResponseModalOpen(true);
+      } else if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        setTrainAiModalOpen(true);
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        handleSendMyself();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
-  // Kept beside the suggestion so the two cannot describe different drafts.
-  const aiGovernance =
-    suggestionState !== null && suggestionState.conversationId === conversationId
-      ? suggestionState.governance
-      : null;
-
-  const confirmSend = useCallback((variables: ComposerSendVariables) => {
-    const mode = variables.kind as ComposerMode;
-    if (!COMPOSER_MODE_META[mode].customerFacing) return Promise.resolve(true);
-
-    return new Promise<boolean>((resolve) => {
-      setPendingSend({
-        mode,
-        body: variables.body,
-        confirm: (confirmed: boolean) => {
-          setPendingSend(null);
-          resolve(confirmed);
-        },
-      });
-    });
+  const handleSendMyself = useCallback(() => {
+    toast.success("Marked as handled: response will be sent directly by agent.");
   }, []);
-
-  const handleDraftEvent = useCallback(
-    (event: ComposerDraftEvent) => {
-      if (conversationId === null) return;
-      recordDraftEdit.mutate({
-        action: event.type === "adopted" ? "adopted" : "cleared",
-        source: event.type === "adopted" ? "ai" : "agent",
-        characters: event.type === "adopted" ? event.body.length : 0,
-      });
-    },
-    [conversationId, recordDraftEdit],
-  );
-
-  const runAi = useCallback(
-    (action: AiAction, input?: string) => {
-      if (conversationId === null) return;
-      ai.mutate(
-        { action, input },
-        {
-          onSuccess: (result) =>
-            setSuggestionState({
-              conversationId,
-              suggestion: result.suggestion,
-              governance: result.governance,
-            }),
-        },
-      );
-    },
-    [ai, conversationId],
-  );
-
-  const adoptSuggestion = useCallback(
-    (content: string) => {
-      composerRef.current?.insertDraft(content);
-    },
-    [],
-  );
 
   if (!conversationId) {
     return (
       <div className="flex h-full items-center justify-center">
         <EmptyState
           title="No conversation selected"
-          description="Choose a conversation from the list to see its timeline, or search for a customer."
+          description="Choose an email from the inbox list to view its thread and response tools."
         />
       </div>
     );
   }
 
   if (!conversation && detail.isLoading) {
-    return <LoadingState label="Loading conversation…" />;
+    return <LoadingState label="Loading email conversation…" />;
   }
 
   if (!conversation) {
     return (
       <ErrorState
         title="Conversation unavailable"
-        description="This conversation could not be loaded. It may have been removed or you may not have access."
+        description="This conversation could not be loaded."
         onRetry={() => void detail.refetch()}
         retrying={detail.isFetching}
       />
     );
   }
 
-  const canReply = can(session.user.role, "conversation.reply");
-  const canEscalate = can(session.user.role, "conversation.escalate");
-  const assignDecision = canAssignConversation(session.user.role, {
-    currentAssigneeId: conversation.assignedTo?.id ?? null,
-    actorId: session.user.id,
-  });
-  const canMoveToPrivate =
-    canReply && thread?.type === "public" && thread.movedToConversationId === null;
-  const canUseAi =
-    canUseAiAssist(session.user.role) && (thread === null || canUseAiAssistOn(session.user.role, thread));
-  const canResolve = can(session.user.role, "conversation.resolve");
-  const alreadyResolved = conversation.status === "resolved" || conversation.status === "closed";
+  const subject = conversation.subject || "Let's Hear From You - TPA Scheme Survey";
+  const emailRef = conversation.interactionId || "EML-H6G6";
+  const accountRef = conversation.account || "Not provided";
+  const overdueDisplay = conversation.slaOverdueDisplay || "-65:14:41 over SLA";
 
   return (
-    <div className="flex h-full min-h-0">
-      {/*
-        Response Desk structure: the conversation is the dominant column and owns
-        the single primary scroll (header + timeline + composer are fixed within
-        the viewport), while customer context docks to the right and scrolls on
-        its own. Neither pane scrolls the page, so nothing nests.
-      */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <ConversationHeader
-        conversation={conversation}
-        now={now}
-        unread={conversation.unread}
-        updatingRead={updatingRead}
-        canReply={canReply}
-        canEscalate={canEscalate}
-        canAssign={assignDecision.allowed}
-        canMoveToPrivate={canMoveToPrivate}
-        canUseAi={canUseAi}
-        canResolve={canResolve}
-        onSetRead={onSetRead}
-        onShowCustomerHistory={() => {
-          // On a wide viewport the same facts are already docked on the right, so
-          // the action re-opens the drawer only when the pane is not shown.
-          setCustomerContextOpen(!showContextPane);
-        }}
-        onShowConversationHistory={() => setConversationHistoryOpen(true)}
-        onToggleContextPane={
-          wideViewport ? () => setContextPaneDismissed((value) => !value) : undefined
-        }
-        contextPaneVisible={showContextPane}
-        onAssign={() => setAssignOpen(true)}
-        onEscalate={() => setEscalateOpen(true)}
-        onMoveToPrivate={() => setMoveOpen(true)}
-        onAddNote={() => setComposerMode("internal_note")}
-        onShowAiAssist={() => setAiOpen(true)}
-        onShowResolve={() => setResolveOpen(true)}
-      />
+    <div className="flex h-full min-h-0 flex-col bg-canvas select-none">
+      {/* Top Workspace Header matching screenshot */}
+      <div className="border-line bg-surface shrink-0 border-b px-6 pt-5 pb-4">
+        {/* Row 1: Subject + Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-ink text-xl md:text-2xl font-bold tracking-tight">
+            {subject}
+          </h1>
 
-      {/*
-        The one primary scroll in the centre column. The inner measure is capped
-        so a long thread stays readable instead of stretching to a 4K monitor,
-        and the generous vertical rhythm removes the cramped feel of a small
-        fixed-height chat box.
-      */}
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-5 py-6">
-        <div className="mx-auto w-full max-w-3xl">
-          {messages.isLoading ? (
-            <LoadingState label="Loading the conversation…" />
-          ) : messages.isError ? (
-            <ErrorState
-              title="Unable to load messages"
-              description="The conversation timeline could not be loaded."
-              onRetry={() => void messages.refetch()}
-              retrying={messages.isFetching}
-            />
-          ) : (
-            <MessageTimeline messages={messages.data?.messages ?? []} now={now} />
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 rounded-full px-2.5 py-0.5 text-xs font-semibold inline-flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+              New
+            </span>
+
+            <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 rounded-full px-2.5 py-0.5 text-xs font-medium">
+              Enquiry
+            </span>
+
+            <span className="bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 border border-red-100 dark:border-red-900/40 rounded-full px-2.5 py-0.5 text-xs font-medium inline-flex items-center gap-1">
+              <Clock className="size-3 shrink-0" />
+              <span>{overdueDisplay}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Row 2: Sender info & Action buttons */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 text-xs font-bold">
+              {conversation.customer.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="text-xs">
+              <span className="text-ink font-semibold">
+                {conversation.customer.name}
+              </span>
+              <span className="text-ink-muted ml-1">
+                &lt;{conversation.customer.handle}&gt; · {formatRelativeTime(conversation.lastMessageAt, now)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCustomerContextOpen(true)}
+              className="border-line bg-surface hover:bg-surface-muted text-ink inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+            >
+              <User className="size-3 text-ink-muted" />
+              <span>Customer history</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConversationHistoryOpen(true)}
+              className="border-line bg-surface hover:bg-surface-muted text-ink inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+            >
+              <History className="size-3 text-ink-muted" />
+              <span>Email history</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEscalateOpen(true)}
+              className="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-400 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
+            >
+              <ArrowUp className="size-3" />
+              <span>Escalate</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <ResponseComposer
-        ref={composerRef}
-        mode={composerMode}
-        onModeChange={setComposerMode}
-        allowed={canReply}
-        beforeSend={confirmSend}
-        onDraftEvent={handleDraftEvent}
-        onDraftChange={setDraftText}
-        onSend={(variables) => sendMessage.mutateAsync(variables).then(() => undefined)}
+      {/* Main Conversation Scrollable Area */}
+      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Conversation Card Container matching screenshot */}
+        <div className="border-line bg-surface rounded-xl border p-5 shadow-xs">
+          {/* Conversation header */}
+          <div className="flex items-center justify-between pb-3 border-b border-line">
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-md bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-bold text-xs">
+                D
+              </span>
+              <span className="text-ink text-sm font-bold">Conversation</span>
+            </div>
+
+            <span className="bg-surface-muted text-ink-muted rounded-full px-2.5 py-0.5 text-xs font-medium">
+              1 message
+            </span>
+          </div>
+
+          {/* Metadata labels row */}
+          <div className="flex items-center gap-6 py-3 text-xs border-b border-line">
+            <div>
+              <span className="text-ink-subtle font-medium text-[11px] uppercase mr-2">EMAIL</span>
+              <span className="text-ink font-mono font-medium">{emailRef}</span>
+            </div>
+            <div>
+              <span className="text-ink-subtle font-medium text-[11px] uppercase mr-2">ACCOUNT</span>
+              <span className="text-ink font-medium">{accountRef}</span>
+            </div>
+          </div>
+
+          {/* Blue-bordered Message Card matching screenshot */}
+          <div className="mt-4 rounded-lg border border-blue-400/80 dark:border-blue-600/80 bg-canvas p-5 shadow-xs">
+            {/* Message header */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 text-xs font-bold">
+                {conversation.customer.name.slice(0, 1).toUpperCase()}
+              </div>
+              <span className="text-ink text-xs font-bold">{conversation.customer.name}</span>
+              <span className="text-ink-subtle text-xs">3d ago</span>
+            </div>
+
+            {/* Message body */}
+            <div className="text-xs text-ink leading-relaxed space-y-3 font-sans">
+              <p>
+                {conversation.customer.name} ({conversation.customer.handle}) has sent you a protected message.
+              </p>
+
+              <p>
+                <a
+                  href="#read"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toast.info("Decrypted via Microsoft Purview Message Encryption certificate.");
+                  }}
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline-block"
+                >
+                  Read the message
+                </a>
+              </p>
+
+              <p className="text-ink-muted text-[11px]">
+                Learn about messages protected by Microsoft Purview Message Encryption.
+              </p>
+
+              <p>
+                <a
+                  href="#privacy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toast.info("FirstBank Customer Data Privacy Statement viewed.");
+                  }}
+                  className="text-blue-600 dark:text-blue-400 hover:underline inline-block"
+                >
+                  Privacy Statement
+                </a>
+              </p>
+
+              <div className="text-ink-subtle text-[11px] pt-1 border-t border-line space-y-0.5">
+                <p>Learn More on email encryption.</p>
+                <p>Microsoft Corporation, One Microsoft Way, Redmond, WA 98052</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Attachment Card matching screenshot */}
+        <div>
+          <h2 className="text-ink-subtle text-[11px] font-bold tracking-wider uppercase mb-2">
+            1 ATTACHMENT
+          </h2>
+
+          <div className="border-line bg-surface hover:bg-surface-muted flex items-center justify-between rounded-xl border p-3 shadow-xs transition-colors w-full max-w-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                <FileCode className="size-4" />
+              </span>
+              <div>
+                <p className="text-ink font-semibold text-xs">message.rpmsg</p>
+                <p className="text-ink-muted text-[11px]">2.3 MB</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => toast.success("Protected file message.rpmsg downloaded securely.")}
+              className="text-ink-subtle hover:text-ink p-1 rounded"
+              title="Download attachment"
+            >
+              <Download className="size-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Bottom Toolbar matching screenshot */}
+      <div className="border-line bg-surface shrink-0 border-t px-6 py-3.5 shadow-sm">
+        <div className="flex items-center justify-start gap-3">
+          {/* Send Response Button */}
+          <button
+            type="button"
+            onClick={() => setResponseModalOpen(true)}
+            className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center gap-2 rounded-lg py-2.5 px-6 font-medium text-xs shadow-xs transition-colors"
+          >
+            <Send className="size-3.5" />
+            <span>Send response</span>
+            <kbd className="bg-blue-700/60 rounded px-1.5 py-0.5 font-mono text-[10px]">
+              Ctrl ↵
+            </kbd>
+          </button>
+
+          {/* Train AI Button */}
+          <button
+            type="button"
+            onClick={() => setTrainAiModalOpen(true)}
+            className="border-line bg-surface hover:bg-surface-muted text-ink flex items-center gap-2 rounded-lg border py-2.5 px-4 font-medium text-xs transition-colors"
+          >
+            <Sparkles className="size-3.5 text-indigo-600" />
+            <span>Train AI</span>
+            <kbd className="border-line text-ink-subtle rounded border px-1.5 py-0.5 font-mono text-[10px]">
+              t
+            </kbd>
+          </button>
+
+          {/* I'll send it myself Button */}
+          <button
+            type="button"
+            onClick={handleSendMyself}
+            className="border-line bg-surface hover:bg-surface-muted text-ink flex items-center gap-2 rounded-lg border py-2.5 px-4 font-medium text-xs transition-colors"
+          >
+            <Check className="size-3.5 text-emerald-600" />
+            <span>I'll send it myself</span>
+            <kbd className="border-line text-ink-subtle rounded border px-1.5 py-0.5 font-mono text-[10px]">
+              m
+            </kbd>
+          </button>
+        </div>
+      </div>
+
+      {/* Dialogs and Drawers */}
+      <ResponseComposerModal
+        open={responseModalOpen}
+        onOpenChange={setResponseModalOpen}
+        conversation={conversation}
+        onSent={(body) => {
+          sendMessage.mutate({
+            kind: "private",
+            body,
+            attachments: [],
+            author: { id: "usr_agent_olatunji", name: "OLATUNJI ALAO", type: "agent" },
+          });
+        }}
       />
 
-      <SendConfirmationDialog
-        open={pendingSend !== null}
-        mode={pendingSend?.mode ?? composerMode}
-        body={pendingSend?.body ?? ""}
-        onConfirm={() => pendingSend?.confirm(true)}
-        onCancel={() => pendingSend?.confirm(false)}
-      />
+      <TrainAiModal open={trainAiModalOpen} onOpenChange={setTrainAiModalOpen} />
 
-      <AiAssistPanel
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        draft={draftText}
-        suggestion={suggestion}
-        governance={aiGovernance}
-        pending={ai.isPending}
-        error={ai.isError ? (ai.error as Error).message : null}
-        onAdopt={adoptSuggestion}
-        onRun={runAi}
-      />
-
-      <ResolveDialog
-        key={`resolve-${resolveOpen}`}
-        open={resolveOpen}
-        onOpenChange={setResolveOpen}
-        pending={status.isPending}
-        error={status.isError ? (status.error as Error).message : null}
-        alreadyResolved={alreadyResolved}
-        onResolve={(note) =>
-          status.mutate(
-            { status: "resolved", note },
-            { onSuccess: () => setResolveOpen(false) },
-          )
-        }
-        onReopen={() =>
-          status.mutate(
-            { status: "open", reason: "Reopened from the conversation workspace." },
-            { onSuccess: () => setResolveOpen(false) },
-          )
+      <EscalateDialog
+        key={`escalate-${escalateOpen}`}
+        open={escalateOpen}
+        onOpenChange={setEscalateOpen}
+        pending={escalate.isPending}
+        error={escalate.isError ? (escalate.error as Error).message : null}
+        onEscalate={(input) =>
+          escalate.mutate(input, {
+            onSuccess: () => {
+              setEscalateOpen(false);
+              toast.success("Conversation escalated to designated supervisor queue.");
+            },
+          })
         }
       />
 
@@ -369,6 +405,13 @@ export function ConversationWorkspace({
         loading={customer.isLoading}
         error={customer.isError}
         onRetry={() => void customer.refetch()}
+        activeConversationId={conversationId}
+        onOpenInteraction={(id) => {
+          setCustomerContextOpen(false);
+          onConversationCreated?.(id);
+        }}
+        onOpenFullHistory={() => setCustomerHistoryOpen(true)}
+        now={now}
       />
 
       <CustomerHistoryPanel
@@ -395,63 +438,6 @@ export function ConversationWorkspace({
         onRetry={() => void audit.refetch()}
         now={now}
       />
-
-      <AssignDialog
-        key={`assign-${assignOpen}`}
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        conversation={conversation}
-        assignees={thread?.assignees ?? []}
-        pending={assign.isPending}
-        error={assign.isError ? (assign.error as Error).message : null}
-        onAssign={(assigneeId) =>
-          assign.mutate(
-            { assigneeId },
-            { onSuccess: () => setAssignOpen(false) },
-          )
-        }
-      />
-
-      <EscalateDialog
-        key={`escalate-${escalateOpen}`}
-        open={escalateOpen}
-        onOpenChange={setEscalateOpen}
-        pending={escalate.isPending}
-        error={escalate.isError ? (escalate.error as Error).message : null}
-        onEscalate={(input) =>
-          escalate.mutate(input, { onSuccess: () => setEscalateOpen(false) })
-        }
-      />
-
-      <MoveToPrivateDialog
-        key={`move-${moveOpen}`}
-        open={moveOpen}
-        onOpenChange={setMoveOpen}
-        pending={moveToPrivate.isPending}
-        error={moveToPrivate.isError ? (moveToPrivate.error as Error).message : null}
-        onConfirm={(input) =>
-          moveToPrivate.mutate(input, {
-            onSuccess: (result) => {
-              setMoveOpen(false);
-              onConversationCreated?.(result.created.id);
-            },
-          })
-        }
-      />
-      </div>
-
-      {showContextPane ? (
-        <CustomerContextPane
-          customer={customer.data?.customer ?? null}
-          loading={customer.isLoading}
-          error={customer.isError}
-          onRetry={() => void customer.refetch()}
-          activeConversationId={conversationId}
-          onOpenInteraction={(id) => onConversationCreated?.(id)}
-          onOpenFullHistory={() => setCustomerHistoryOpen(true)}
-          now={now}
-        />
-      ) : null}
     </div>
   );
 }

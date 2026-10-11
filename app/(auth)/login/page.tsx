@@ -5,8 +5,8 @@ import { demoRoleOptions, roleDescription } from "@/server/auth/demo-users";
 import { getCurrentUser } from "@/server/auth/session";
 import { homePathForRole } from "@/server/rbac/routes";
 import { ROLE_LABELS, type Role } from "@/lib/domain/user";
-import { DEMO_CONFIG } from "@/lib/config";
 import { redirect } from "next/navigation";
+import { FirstBankLogo } from "@/components/ui/firstbank-logo";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -34,17 +34,16 @@ export default async function LoginPage({
 
   return (
     <div className="border-line bg-surface w-full max-w-xl rounded-xl border p-8 shadow-lg">
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-ink text-lg font-semibold tracking-tight">Sign in to Senami</h1>
-        {DEMO_CONFIG.enabled ? (
-          <span className="border-warning-muted bg-warning-subtle text-warning rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
-            {DEMO_CONFIG.label}
-          </span>
-        ) : null}
+      <div className="flex items-center gap-3 mb-2">
+        <FirstBankLogo size="lg" />
+        <div>
+          <h1 className="text-ink text-lg font-bold tracking-tight">FIRSTASSIST Response Desk</h1>
+          <p className="text-ink-muted text-xs">FirstBank Customer Service Operations Platform</p>
+        </div>
       </div>
 
-      <p className="text-ink-muted mt-1 text-sm">
-        Pick a role to explore its workspace. Every account is synthetic.
+      <p className="text-ink-muted mt-3 text-sm">
+        Select your account to access the Response Desk.
       </p>
 
       {reason === "unknown-role" ? (

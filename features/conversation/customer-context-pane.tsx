@@ -17,16 +17,17 @@ import {
 } from "@/lib/domain/customer";
 import { CONVERSATION_STATUS_META } from "@/lib/domain/taxonomy";
 import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /**
- * Customer context pane (Response Desk right column).
+ * Customer context (Response Desk right column).
  *
- * The always-visible counterpart to the customer-context drawer: the same facts
- * an agent needs before replying, but docked beside the conversation so it can
- * be read while writing instead of behind a modal. It scrolls independently of
- * the timeline, and every previous interaction is a real link back into the
- * workspace - which is how "what did we tell this customer last month?" gets
- * answered without scrolling the queue.
+ * The facts an agent needs before replying: who they are, what is still open,
+ * and what happened before. It renders as a full-height column when it owns the
+ * space next to the conversation, and as the body of the customer-context drawer
+ * when it does not - the customer context must never permanently claim width, so
+ * the conversation keeps the dominant column and this surface opens over it on
+ * demand. Every previous interaction is a real link back into the workspace.
  */
 
 const INTERACTION_ICONS: Record<CustomerInteractionKind, typeof Mail> = {
@@ -48,6 +49,13 @@ export interface CustomerContextPaneProps {
   /** Open the full customer history drawer. */
   onOpenFullHistory?: () => void;
   now: Date;
+  /**
+   * Extra classes for the outer surface. The drawer passes a full-width,
+   * border-less variant; omitting it keeps the standalone column.
+   */
+  className?: string;
+  /** Hide the column's own heading when a surrounding surface already titles it. */
+  hideHeading?: boolean;
 }
 
 export function CustomerContextPane({
@@ -59,29 +67,36 @@ export function CustomerContextPane({
   onOpenInteraction,
   onOpenFullHistory,
   now,
+  className,
+  hideHeading = false,
 }: CustomerContextPaneProps) {
   return (
     <aside
       aria-label="Customer context and interaction history"
-      className="border-line bg-surface flex min-h-0 w-[20rem] shrink-0 flex-col border-l xl:w-[22rem]"
+      className={cn(
+        "bg-surface flex min-h-0 shrink-0 flex-col",
+        className ?? "border-line w-[18rem] border-l lg:w-[20rem] xl:w-[22rem]",
+      )}
     >
-      <div className="border-line flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
-        <div>
-          <h2 className="text-ink text-xs font-semibold">Customer context</h2>
-          <p className="text-ink-subtle text-[11px]">
-            Read alongside the conversation while you reply.
-          </p>
+      {hideHeading ? null : (
+        <div className="border-line flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
+          <div>
+            <h2 className="text-ink text-xs font-semibold">Customer context</h2>
+            <p className="text-ink-subtle text-[11px]">
+              Read alongside the conversation while you reply.
+            </p>
+          </div>
+          {onOpenFullHistory ? (
+            <button
+              type="button"
+              onClick={onOpenFullHistory}
+              className="border-line text-ink-secondary hover:bg-surface-muted hover:text-ink shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium"
+            >
+              Full history
+            </button>
+          ) : null}
         </div>
-        {onOpenFullHistory ? (
-          <button
-            type="button"
-            onClick={onOpenFullHistory}
-            className="border-line text-ink-secondary hover:bg-surface-muted hover:text-ink shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium"
-          >
-            Full history
-          </button>
-        ) : null}
-      </div>
+      )}
 
       <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
@@ -152,12 +167,12 @@ export function CustomerContextPane({
                 </h3>
                 <ul className="mt-2 space-y-1.5">
                   {customer.openIssues.map((issue) => (
-                    <li key={issue.id} className="border-line rounded-md border px-2.5 py-1.5">
-                      <p className="text-ink-secondary line-clamp-2 text-xs">{issue.label}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Badge tone="warning" size="sm">
+                    <li key={issue.id} className="py-0.5">
+                      <p className="text-ink-secondary text-xs">{issue.label}</p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="text-warning text-[11px] font-medium">
                           {CUSTOMER_ISSUE_OWNER_LABELS[issue.owner]}
-                        </Badge>
+                        </span>
                         <time
                           className="text-ink-subtle text-[11px]"
                           dateTime={issue.openedAt}
@@ -197,8 +212,8 @@ export function CustomerContextPane({
                         aria-current={active ? "true" : undefined}
                         className={
                           active
-                            ? "border-primary/50 bg-primary-subtle/60 w-full rounded-md border px-2.5 py-2 text-left"
-                            : "border-line hover:bg-surface-muted w-full rounded-md border px-2.5 py-2 text-left transition-colors"
+                            ? "bg-primary-subtle/60 w-full px-1.5 py-1.5 text-left"
+                            : "hover:bg-surface-muted w-full px-1.5 py-1.5 text-left transition-colors"
                         }
                       >
                         <div className="flex items-center gap-1.5">
@@ -219,7 +234,7 @@ export function CustomerContextPane({
                         </div>
 
                         <p
-                          className="bg-surface-muted text-ink-secondary mt-1 inline-block rounded px-1 py-px font-mono text-[10px]"
+                          className="text-ink-secondary mt-1 inline-block font-mono text-[10px]"
                           data-numeric
                         >
                           {entry.interactionId}

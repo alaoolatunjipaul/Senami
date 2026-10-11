@@ -140,18 +140,6 @@ export function FilterBar({
         </label>
 
         <FilterSelect
-          label="Intent"
-          value={query.intent}
-          options={options?.intents ?? INTENT_OPTIONS}
-          onChange={(value) => onPatch({ intent: value as InboxQuery["intent"] })}
-        />
-        <FilterSelect
-          label="Sentiment"
-          value={query.sentiment}
-          options={options?.sentiments ?? SENTIMENT_OPTIONS}
-          onChange={(value) => onPatch({ sentiment: value as InboxQuery["sentiment"] })}
-        />
-        <FilterSelect
           label="Priority"
           value={query.priority}
           options={options?.priorities ?? PRIORITY_OPTIONS}
@@ -163,6 +151,27 @@ export function FilterBar({
           options={options?.slaStates ?? SLA_OPTIONS}
           onChange={(value) => onPatch({ sla: value as InboxQuery["sla"] })}
         />
+        <details className="relative">
+          <summary className="border-line bg-canvas inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs text-ink-secondary">
+            More filters
+          </summary>
+          <div className="absolute right-0 z-40 mt-1 w-[14rem] rounded-lg border border-line bg-surface p-2 shadow-lg">
+            <div className="flex flex-col gap-1.5">
+              <FilterSelect
+                label="Intent"
+                value={query.intent}
+                options={options?.intents ?? INTENT_OPTIONS}
+                onChange={(value) => onPatch({ intent: value as InboxQuery["intent"] })}
+              />
+              <FilterSelect
+                label="Sentiment"
+                value={query.sentiment}
+                options={options?.sentiments ?? SENTIMENT_OPTIONS}
+                onChange={(value) => onPatch({ sentiment: value as InboxQuery["sentiment"] })}
+              />
+            </div>
+          </div>
+        </details>
         <FilterSelect
           label="Assigned"
           value={query.assigneeId}

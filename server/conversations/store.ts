@@ -435,6 +435,38 @@ export function buildConversationStore(): ConversationStore {
       ),
     );
 
+    if (conversation.id === "cv_0005" || conversation.interactionId === "EML-H6G6") {
+      push({
+        kind: "private",
+        direction: "inbound",
+        author: customerAuthor,
+        body: `HCMD (HCMD@firstbankgroup.com) has sent you a protected message.
+
+Read the message
+
+Learn about messages protected by Microsoft Purview Message Encryption.
+
+Privacy Statement
+
+Learn More on email encryption.
+Microsoft Corporation, One Microsoft Way, Redmond, WA 98052`,
+        createdAt: t0,
+        attachments: [
+          {
+            id: "att_rpmsg_001",
+            name: "message.rpmsg",
+            mimeType: "application/x-rpmsg",
+            sizeBytes: 2411724, // 2.3 MB
+            url: "#",
+            kind: "document",
+          },
+        ],
+        replyToId: null,
+        aiConfidence: null,
+      });
+      return { messages, audit };
+    }
+
     const firstAttachment = attachmentFor(`${conversation.id}-m00`, rng);
     push({
       kind: privateThread ? "private" : "public",

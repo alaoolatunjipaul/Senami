@@ -1,29 +1,9 @@
 "use client";
 
-import { UserRound } from "lucide-react";
-
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { SLAIndicator } from "@/components/ui/sla-indicator";
-import { channelDotClass, channelLabel } from "@/lib/domain/channel-visuals";
-import { slaEvaluationOf, interactionReference, type InboxConversationDto } from "@/lib/domain/inbox";
-import {
-  CONVERSATION_STATUS_META,
-  INTENT_META,
-  PRIORITY_META,
-  SENTIMENT_META,
-} from "@/lib/domain/taxonomy";
+import { Clock } from "lucide-react";
+import { slaEvaluationOf, type InboxConversationDto } from "@/lib/domain/inbox";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/**
- * Inbox conversation card.
- *
- * One row of the queue: channel indicator, customer identity, message preview,
- * timestamp, and the intent / sentiment / priority / SLA / assignment / unread
- * state an agent triages on. The card is a button; selecting it is a real
- * selection owned by the view.
- */
 
 export interface ConversationCardProps {
   item: InboxConversationDto;
@@ -32,9 +12,31 @@ export interface ConversationCardProps {
   now: Date;
 }
 
+// Avatar color palette based on name/handle
+function getAvatarStyle(name: string): { bg: string; text: string; initials: string } {
+  if (name.includes("Personal")) {
+    return { bg: "bg-slate-200 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", initials: "PB" };
+  }
+  if (name.includes("HCMD")) {
+    return { bg: "bg-teal-100 dark:bg-teal-950/60", text: "text-teal-800 dark:text-teal-300", initials: "H" };
+  }
+  if (name.includes("Announcement")) {
+    return { bg: "bg-rose-100 dark:bg-rose-950/60", text: "text-rose-700 dark:text-rose-300", initials: "A" };
+  }
+  if (name.includes("PR1MUS")) {
+    return { bg: "bg-slate-200 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", initials: "P" };
+  }
+
+  const parts = name.trim().split(/\s+/);
+  const initials = parts.length >= 2 ? `${parts[0]?.[0]}${parts[1]?.[0]}` : name.slice(0, 2);
+  return { bg: "bg-blue-100 dark:bg-blue-950/60", text: "text-blue-700 dark:text-blue-300", initials: initials.toUpperCase() };
+}
+
 export function ConversationCard({ item, selected, onSelect, now }: ConversationCardProps) {
   const sla = slaEvaluationOf(item, now);
-  const status = CONVERSATION_STATUS_META[item.status];
+  const avatar = getAvatarStyle(item.customer.name);
+  const subject = item.subject || "FirstBank Customer Enquiry";
+  const overdueText = item.slaOverdueDisplay || `${sla.label}`;
 
   return (
     <button
@@ -42,82 +44,66 @@ export function ConversationCard({ item, selected, onSelect, now }: Conversation
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "border-line duration-fast w-full border-b px-4 py-3 text-left transition-colors",
-        "focus-visible:ring-primary/40 outline-none focus-visible:ring-[3px] focus-visible:ring-inset",
-        selected ? "bg-primary-subtle/60" : "bg-surface hover:bg-surface-muted",
+        "border-line w-full border-b px-4 py-3.5 text-left transition-colors cursor-pointer select-none",
+        "outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+        selected
+          ? "bg-blue-50/70 dark:bg-blue-950/30 border-l-4 border-l-blue-600"
+          : "bg-surface hover:bg-surface-muted",
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <Avatar name={item.customer.name} size="md" />
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+            avatar.bg,
+            avatar.text,
+          )}
+        >
+          {avatar.initials}
+        </div>
+
+        {/* Content */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span
-              className={cn(
-                "text-ink min-w-0 flex-1 truncate text-[13px]",
-                item.unread ? "font-semibold" : "font-medium",
-              )}
-            >
-              {item.customer.name}
-            </span>
-            <span className="text-ink-subtle shrink-0 text-[11px]">
-              {formatRelativeTime(item.lastMessageAt, now)}
-            </span>
-            {item.unread ? (
-              <span
-                role="status"
-                aria-label="Unread"
-                className="bg-primary mt-0.5 size-2 shrink-0 rounded-full"
-              />
-            ) : null}
-          </div>
+          {/* Top line: Sender · Time · New */}
+          <div className="flex items-center justify-between gap-1 text-xs">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-ink font-semibold truncate text-[13px]">
+                {item.customer.name}
+              </span>
+              <span className="text-ink-subtle text-[11px] shrink-0">
+                {formatRelativeTime(item.lastMessageAt, now)}
+              </span>
+            </div>
 
-          <div className="text-ink-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
-            <span
-              aria-hidden="true"
-              className={cn("size-1.5 shrink-0 rounded-full", channelDotClass(item.channel))}
-            />
-            <span className="truncate">{item.customer.handle}</span>
-            <span aria-hidden="true">·</span>
-            <span className="shrink-0">{channelLabel(item.channel)}</span>
-          </div>
-
-          <div className="text-ink-subtle mt-1 flex items-center gap-1.5 text-[11px]">
-            <span className="bg-surface-muted text-ink-muted rounded px-1 py-px font-medium" data-numeric>
-              {interactionReference(item)}
-            </span>
-          </div>
-
-          <p className="text-ink-secondary mt-1 line-clamp-2 text-xs">{item.preview}</p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-1">
-            <Badge tone="neutral" size="sm" srPrefix="Intent">
-              {INTENT_META[item.intent]}
-            </Badge>
-            <Badge tone={SENTIMENT_META[item.sentiment].tone} size="sm" srPrefix="Sentiment">
-              {SENTIMENT_META[item.sentiment].label}
-            </Badge>
-            <Badge tone={PRIORITY_META[item.priority].tone} size="sm" srPrefix="Priority">
-              {PRIORITY_META[item.priority].label}
-            </Badge>
-            <Badge tone={status.tone} size="sm" srPrefix="Status">
-              {status.label}
-            </Badge>
-            <SLAIndicator evaluation={sla} compact className="ml-auto" />
-          </div>
-
-          <div className="text-ink-subtle mt-1.5 flex items-center gap-1.5 text-[11px]">
-            {item.assignedTo ? (
-              <>
-                <Avatar name={item.assignedTo.name} size="xs" />
-                <span className="truncate">Assigned to {item.assignedTo.name}</span>
-              </>
-            ) : (
-              <>
-                <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
-                <span>Unassigned</span>
-              </>
+            {item.unread && (
+              <span className="bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1 shrink-0">
+                <span className="size-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+                New
+              </span>
             )}
-            {item.needsReview ? <span className="text-warning ml-auto">Needs review</span> : null}
+          </div>
+
+          {/* Subject */}
+          <h3 className="text-ink font-bold text-xs mt-1 truncate leading-tight">
+            {subject}
+          </h3>
+
+          {/* Preview Snippet */}
+          <p className="text-ink-secondary text-[11px] line-clamp-2 mt-1 leading-relaxed">
+            {item.preview}
+          </p>
+
+          {/* Tags */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 rounded-full px-2.5 py-0.5 text-[11px] font-medium">
+              Enquiry
+            </span>
+
+            <span className="bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 border border-red-100 dark:border-red-900/40 rounded-full px-2.5 py-0.5 text-[11px] font-medium inline-flex items-center gap-1">
+              <Clock className="size-3 shrink-0" />
+              <span>{overdueText}</span>
+            </span>
           </div>
         </div>
       </div>

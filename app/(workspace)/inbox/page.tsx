@@ -19,7 +19,6 @@ export const metadata: Metadata = { title: "Inbox" };
 export default function InboxPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Inbox" description="Unified queue across every channel" />
       <div className="min-h-0 flex-1">
         <InboxProvider>
           <Suspense fallback={<LoadingState label="Loading the inbox…" />}>

@@ -60,7 +60,12 @@ export function MessageBubble({ message, now }: MessageBubbleProps) {
 
       <div className={cn("flex min-w-0 max-w-[80%] flex-col", outbound ? "items-end" : "items-start")}>
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="text-ink-secondary text-xs font-medium">{message.author.name}</span>
+          <span className="text-ink-secondary text-xs font-medium">
+            {message.author.name}
+            {outbound && message.kind !== "internal_note" && message.kind !== "ai_generated" ? (
+              <span className="text-ink-subtle ml-1 text-[11px]">(Agent)</span>
+            ) : null}
+          </span>
           <Badge tone={meta.tone as Tone} size="sm" srPrefix="Message type">
             {meta.label}
           </Badge>

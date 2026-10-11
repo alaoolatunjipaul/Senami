@@ -20,11 +20,18 @@ export interface DemoAccount {
 
 const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   {
+    id: "usr_agent_olatunji",
+    name: "OLATUNJI ALAO",
+    email: "olatunji.alao@firstbankgroup.com",
+    role: "AGENT",
+    teamId: "team_response_desk",
+  },
+  {
     id: "usr_agent_maya",
     name: "Maya Keller",
-    email: "maya.keller@senami.demo",
+    email: "maya.keller@firstbankgroup.com",
     role: "AGENT",
-    teamId: "team_support_eu",
+    teamId: "team_response_desk",
   },
   {
     id: "usr_sup_david",

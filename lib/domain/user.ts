@@ -11,7 +11,7 @@ export const ROLES = ["AGENT", "SUPERVISOR", "QA", "ADMIN"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  AGENT: "Agent",
+  AGENT: "Response agent",
   SUPERVISOR: "Supervisor",
   QA: "QA Analyst",
   ADMIN: "Administrator",

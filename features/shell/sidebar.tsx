@@ -1,127 +1,258 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LifeBuoy } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import { APP_CONFIG, DEMO_CONFIG } from "@/lib/config";
-import { channelDotClass } from "@/lib/domain/channel-visuals";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
-  activeNavItemId,
-  navSectionsForRole,
-  navItemsForRole,
-  NAV_SECTION_LABELS,
-  type NavCounts,
-  type NavItem,
-  type NavItemId,
-} from "@/lib/domain/navigation";
+  AlertTriangle,
+  ArrowUpRight,
+  CheckSquare,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  CornerUpRight,
+  Edit3,
+  FileText,
+  HelpCircle,
+  Mail,
+  MessageSquare,
+  PenSquare,
+} from "lucide-react";
+
+import { FirstBankLogo } from "@/components/ui/firstbank-logo";
+import { NewEmailDialog } from "@/features/inbox/new-email-dialog";
 import type { Role } from "@/lib/domain/user";
 import { cn } from "@/lib/utils";
 
-const CHANNEL_ITEM_IDS = new Set<NavItemId>(["instagram", "facebook", "x", "tiktok"]);
-
 export interface SidebarProps {
-  role: Role | null;
-  counts?: NavCounts;
+  role?: Role | null;
+  counts?: Record<string, number>;
 }
 
-export function Sidebar({ role, counts }: SidebarProps) {
+export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
-  const activeId = activeNavItemId(pathname, role);
-  const sections = navSectionsForRole(role);
-  const items = navItemsForRole(role);
+  const searchParams = useSearchParams();
+  const [collapsed, setCollapsed] = useState(false);
+  const [newEmailOpen, setNewEmailOpen] = useState(false);
+
+  const activeView = searchParams.get("view") ?? (searchParams.get("intent") ? "" : "review");
+  const activeIntent = searchParams.get("intent") ?? "";
+
+  const queues = [
+    { id: "urgent", label: "Urgent", count: 0, icon: AlertTriangle, href: "/inbox?sentiment=urgent" },
+    {
+      id: "review",
+      label: "Needs review",
+      count: 40,
+      icon: CheckSquare,
+      href: "/inbox?view=review",
+      active: activeView === "review" && activeIntent === "",
+    },
+    { id: "awaiting", label: "Awaiting customer", count: 0, icon: Clock, href: "/inbox?view=awaiting" },
+    { id: "all", label: "All", count: 41, icon: Mail, href: "/inbox?view=all", active: activeView === "all" },
+    { id: "sent", label: "Sent", count: 1, icon: ArrowUpRight, href: "/inbox?view=sent", active: activeView === "sent" },
+    { id: "manual", label: "Manual", count: 0, icon: Edit3, href: "/inbox?view=manual" },
+  ];
+
+  const folders = [
+    { id: "complaint", label: "Complaints", count: 0, icon: AlertTriangle, href: "/inbox?intent=complaint", active: activeIntent === "complaint" },
+    { id: "request", label: "Requests", count: 0, icon: FileText, href: "/inbox?intent=request", active: activeIntent === "request" },
+    { id: "enquiry", label: "Enquiries", count: 41, icon: HelpCircle, href: "/inbox?intent=enquiry", active: activeIntent === "enquiry" },
+    { id: "feedback", label: "Feedback", count: 0, icon: MessageSquare, href: "/inbox?intent=feedback", active: activeIntent === "feedback" },
+    { id: "followup", label: "Follow-ups", count: 0, icon: CornerUpRight, href: "/inbox?intent=followup", active: activeIntent === "followup" },
+  ];
 
   return (
-    <aside className="bg-surface border-line flex w-64 shrink-0 flex-col border-r">
-      <div className="border-line flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
-        <span className="bg-primary text-primary-ink flex size-7 items-center justify-center rounded-md">
-          <LifeBuoy className="size-4" aria-hidden="true" />
-        </span>
-        <span className="text-ink truncate text-sm font-semibold tracking-tight">
-          {APP_CONFIG.name}
-        </span>
-        {DEMO_CONFIG.enabled ? <Badge tone="warning">DEMO</Badge> : null}
-      </div>
+    <>
+      <aside
+        className={cn(
+          "bg-surface border-line flex shrink-0 flex-col border-r transition-all duration-200 select-none",
+          collapsed ? "w-16" : "w-56 2xl:w-60",
+        )}
+      >
+        {/* Header */}
+        <div className="border-line flex h-14 shrink-0 items-center justify-between border-b px-3.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <FirstBankLogo size="md" className="shrink-0" />
+            {!collapsed && (
+              <div className="min-w-0 flex-1 truncate">
+                <span className="text-ink block text-xs font-bold tracking-tight uppercase">
+                  FIRSTASSIST
+                </span>
+                <span className="text-ink-muted -mt-0.5 block truncate text-[11px]">
+                  Response Desk
+                </span>
+              </div>
+            )}
+          </div>
 
-      <nav className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="Primary">
-        {sections.map((section) => (
-          <div key={section} className="mb-5">
-            <p className="text-ink-subtle px-3 pb-1.5 text-[11px] font-semibold tracking-wider uppercase">
-              {NAV_SECTION_LABELS[section]}
-            </p>
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="text-ink-subtle hover:text-ink hover:bg-surface-muted rounded p-1 transition-colors"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronsRight className="size-3.5" /> : <ChevronsLeft className="size-3.5" />}
+          </button>
+        </div>
+
+        {/* Primary Action Button */}
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={() => setNewEmailOpen(true)}
+            className={cn(
+              "bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 rounded-lg font-medium shadow-xs transition-colors duration-150",
+              collapsed ? "size-10 p-0" : "w-full py-2 px-3 text-xs",
+            )}
+            title="Compose new email"
+          >
+            <PenSquare className="size-3.5 shrink-0" />
+            {!collapsed && <span>New email</span>}
+          </button>
+        </div>
+
+        {/* Nav lists */}
+        <nav className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-2 space-y-4" aria-label="Queues and folders">
+          {/* Main Queues */}
+          <div>
             <ul className="space-y-0.5">
-              {items
-                .filter((item) => item.section === section)
-                .map((item) => (
+              {queues.map((item) => {
+                const Icon = item.icon;
+                const isSelected = item.active ?? (item.id === "review" && activeView === "review");
+
+                return (
                   <li key={item.id}>
-                    <NavLink
-                      item={item}
-                      active={item.id === activeId}
-                      count={counts?.[item.id]}
-                      isChannel={CHANNEL_ITEM_IDS.has(item.id)}
-                    />
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors",
+                        isSelected
+                          ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold"
+                          : "text-ink-secondary hover:bg-surface-muted hover:text-ink font-medium",
+                      )}
+                      title={collapsed ? `${item.label} (${item.count})` : undefined}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Icon
+                          className={cn(
+                            "size-3.5 shrink-0",
+                            isSelected ? "text-blue-600 dark:text-blue-400" : "text-ink-muted group-hover:text-ink",
+                          )}
+                        />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </div>
+                      {!collapsed && (
+                        <span
+                          className={cn(
+                            "ml-auto text-xs",
+                            isSelected ? "text-blue-600 dark:text-blue-400 font-bold" : "text-ink-muted",
+                          )}
+                          data-numeric
+                        >
+                          {item.count}
+                        </span>
+                      )}
+                    </Link>
                   </li>
-                ))}
+                );
+              })}
             </ul>
           </div>
-        ))}
-      </nav>
 
-      <div className="border-line border-t p-3">
-        <div className="bg-canvas border-line rounded-md border p-3">
-          <p className="text-ink-secondary text-xs font-semibold">Integration architecture</p>
-          <p className="text-ink-muted mt-0.5 text-[11px] leading-relaxed">
-            Provider boundaries: CRM, AI, Knowledge, Identity, Messaging, Audit, Customer, Interaction.
-            <span className="block mt-1">Mode: <span className="text-warning font-medium">DEMO / MOCK</span> (no production credentials).</span>
-            <span className="block mt-1">Ready for Microsoft Entra ID, Microsoft Graph, SharePoint, Microsoft Teams, Dataverse, Azure OpenAI, Azure AI Search, Azure API Management when configured.</span>
-          </p>
-        </div>
-      </div>
-    </aside>
-  );
-}
+          {/* Folders */}
+          <div>
+            {!collapsed && (
+              <p className="text-ink-subtle px-2.5 pb-1 text-[11px] font-semibold tracking-wider uppercase">
+                FOLDERS
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              {folders.map((item) => {
+                const Icon = item.icon;
+                const isSelected = item.active;
 
-function NavLink({
-  item,
-  active,
-  count,
-  isChannel,
-}: {
-  item: NavItem;
-  active: boolean;
-  count?: number;
-  isChannel?: boolean;
-}) {
-  const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors",
+                        isSelected
+                          ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold"
+                          : "text-ink-secondary hover:bg-surface-muted hover:text-ink font-medium",
+                      )}
+                      title={collapsed ? `${item.label} (${item.count})` : undefined}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Icon
+                          className={cn(
+                            "size-3.5 shrink-0",
+                            isSelected ? "text-blue-600 dark:text-blue-400" : "text-ink-muted group-hover:text-ink",
+                          )}
+                        />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </div>
+                      {!collapsed && (
+                        <span
+                          className={cn(
+                            "ml-auto text-xs",
+                            isSelected ? "text-blue-600 dark:text-blue-400 font-bold" : "text-ink-muted",
+                          )}
+                          data-numeric
+                        >
+                          {item.count}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </nav>
 
-  return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "group duration-fast flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] transition-colors",
-        active
-          ? "bg-primary-subtle text-primary-ink font-medium"
-          : "text-ink-secondary hover:bg-surface-muted hover:text-ink",
-      )}
-    >
-      <span className={cn("relative flex items-center justify-center", isChannel && "size-4")}>
-        {isChannel ? (
-          <span
-            aria-hidden="true"
-            className={cn("size-1.5 rounded-full", channelDotClass(item.id))}
-          />
-        ) : (
-          <Icon className="size-4 shrink-0" aria-hidden="true" />
+        {/* Bottom Live Sync Card */}
+        {!collapsed && (
+          <div className="p-2.5">
+            <div className="bg-emerald-50/70 border border-emerald-200/60 dark:bg-emerald-950/20 dark:border-emerald-900/40 rounded-xl p-2.5 text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 rounded px-1.5 py-0.5 font-bold text-[10px] tracking-wide uppercase">
+                  LIVE
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-medium text-[11px]">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live - synced now</span>
+              </div>
+              <div className="text-ink-subtle text-[10px] mt-1 font-mono">
+                Build 2026.09.28-0408
+              </div>
+            </div>
+          </div>
         )}
-      </span>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      {count !== undefined ? (
-        <Badge tone="neutral" className="px-1.5 text-[10px]" srPrefix="Count">
-          {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
-        </Badge>
-      ) : null}
-    </Link>
+
+        {/* Bottom User Card */}
+        <div className="border-line border-t p-2.5">
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <div className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+              OA
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1 truncate">
+                <span className="text-ink block truncate text-xs font-bold uppercase tracking-tight">
+                  OLATUNJI ALAO
+                </span>
+                <span className="text-ink-muted block text-[11px] truncate">
+                  Response agent
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <NewEmailDialog open={newEmailOpen} onOpenChange={setNewEmailOpen} />
+    </>
   );
 }

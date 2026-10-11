@@ -18,6 +18,7 @@ const state = vi.hoisted(() => {
     >,
     audit: { data: { events: [] }, isLoading: false, isError: false, isFetching: false, refetch },
     history: { data: null, isLoading: false, isError: false, isFetching: false, refetch },
+    customerContext: { data: null, isLoading: false, isError: false, isFetching: false, refetch },
     mutation: {
       mutate: () => undefined,
       mutateAsync: async () => ({}),
@@ -33,10 +34,15 @@ vi.mock("@/features/conversation/use-conversation", () => ({
   useConversationMessages: () => state.messages,
   useConversationAudit: () => state.audit,
   useCustomerHistory: () => state.history,
+  useCustomerContext: () => state.customerContext,
   useSendMessage: () => state.mutation,
   useAssignConversation: () => state.mutation,
   useEscalateConversation: () => state.mutation,
   useMoveToPrivate: () => state.mutation,
+  useAiSuggestion: () => state.mutation,
+  useRecordDraftEdit: () => state.mutation,
+  useConversationStatus: () => state.mutation,
+  useRecordOpen: () => state.mutation,
   useNow: () => new Date("2026-05-20T12:00:00.000Z"),
 }));
 

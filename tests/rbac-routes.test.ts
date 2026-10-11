@@ -39,7 +39,9 @@ describe("route authorization", () => {
 
   it("maps signed-out visitors and operatives to sane homes", () => {
     expect(homePathForRole(null)).toBe("/login");
-    expect(homePathForRole("AGENT")).toBe("/inbox");
-    expect(homePathForRole("ADMIN")).toBe("/inbox");
+    expect(homePathForRole("AGENT")).toBe("/dashboard");
+    expect(homePathForRole("SUPERVISOR")).toBe("/supervisor");
+    expect(homePathForRole("QA")).toBe("/qa");
+    expect(homePathForRole("ADMIN")).toBe("/admin");
   });
 });

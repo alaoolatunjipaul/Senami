@@ -45,7 +45,7 @@ export function GlobalSearch({
   onNavigate,
   debounceMs = DEFAULT_DEBOUNCE_MS,
   minQuery = DEFAULT_MIN_QUERY,
-  placeholder = "Search customers, conversations and cases…",
+  placeholder = "Search Interaction ID, customer, handle, email, or message…",
   className,
 }: GlobalSearchProps) {
   const [state, setState] = useState<SearchState>({ status: "idle" });
@@ -258,7 +258,7 @@ function SearchHint() {
     <div className="text-ink-muted flex items-center gap-2 px-4 py-4 text-xs">
       <Search className="size-3.5" aria-hidden="true" />
       <span>
-        Type to search customers, conversations and cases. Results are grouped and open directly.
+        Type to search customers, conversations and cases... Results are grouped and open directly.
       </span>
     </div>
   );

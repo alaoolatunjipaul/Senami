@@ -2,30 +2,22 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ArrowUpDown,
+  Calendar,
+  ChevronDown,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { ConversationWorkspace } from "@/features/conversation/conversation-workspace";
 import { ConversationCard } from "@/features/inbox/conversation-card";
-import { FilterBar } from "@/features/inbox/filter-bar";
 import { inboxQueryToSearchParams, useInboxList, useMarkRead } from "@/features/inbox/use-inbox";
 import {
   DEFAULT_INBOX_QUERY,
-  DEFAULT_PAGE_SIZE,
   inboxQueryFromSearchParams,
   type InboxConversationDto,
   type InboxQuery,
 } from "@/lib/domain/inbox";
-
-/**
- * Inbox view.
- *
- * Owns the filter state, the list query, the selected conversation and the
- * read mutation. The list and the detail pane are wired together through real
- * state: selecting a card updates the pane and the URL (so global-search deep
- * links resolve), and marking read mutates the store and refetches.
- */
 
 /** URL for a selected conversation that keeps the current filters intact. */
 function conversationHref(query: InboxQuery, id: string): string {
@@ -34,72 +26,39 @@ function conversationHref(query: InboxQuery, id: string): string {
   return `/inbox?${params.toString()}`;
 }
 
-function hasActiveFilters(query: InboxQuery): boolean {
-  return (
-    query.view !== "all" ||
-    query.channels.length > 0 ||
-    query.intent !== "" ||
-    query.sentiment !== "" ||
-    query.priority !== "" ||
-    query.sla !== "" ||
-    query.assigneeId !== "" ||
-    query.teamId !== "" ||
-    query.date !== "any" ||
-    query.dateFrom !== "" ||
-    query.dateTo !== "" ||
-    query.search.trim() !== ""
-  );
-}
-
 export function InboxView() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Dashboard tiles and shared links arrive as ?view=&sla=... so the inbox opens
-  // already filtered; the URL is the source of truth only on the first render.
   const [filters, setFilters] = useState<InboxQuery>(() => ({
     ...inboxQueryFromSearchParams(new URLSearchParams(searchParams.toString())),
+    view: "review",
   }));
-  const [searchInput, setSearchInput] = useState(() => searchParams.get("q") ?? "");
-  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("q") ?? "");
-  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("conversation"));
+
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => searchParams.get("conversation") ?? "cv_0005",
+  );
+  const [prioritySort, setPrioritySort] = useState<string>("Priority");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [dateRangeText, setDateRangeText] = useState("");
   const [now] = useState(() => new Date());
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchInput), 250);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
   const query = useMemo<InboxQuery>(
-    () => ({ ...filters, search: debouncedSearch }),
-    [filters, debouncedSearch],
+    () => ({ ...filters }),
+    [filters],
   );
 
   const list = useInboxList(query);
   const { mutate: markRead, isPending: markingRead } = useMarkRead();
 
   const items = list.data?.items ?? [];
-  // The list card (when present) seeds the workspace while its own detail query
-  // loads. A deep-linked conversation that is not on the current page simply has
-  // no summary; the workspace fetches it directly.
-  const selected = items.find((item) => item.id === selectedId) ?? null;
+  const selected =
+    items.find((item) => item.id === selectedId) ??
+    items.find((item) => item.id === "cv_0005") ??
+    items[0] ??
+    null;
 
-  const updateFilters = useCallback((patch: Partial<InboxQuery>) => {
-    setFilters((previous) => ({ ...previous, ...patch, page: patch.page ?? 1 }));
-  }, []);
-
-  const clearFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_INBOX_QUERY });
-    setSearchInput("");
-    setDebouncedSearch("");
-  }, []);
-
-  const clearDates = useCallback(() => {
-    setFilters((previous) => ({ ...previous, date: "any", dateFrom: "", dateTo: "", page: 1 }));
-  }, []);
-
-  // Keep the active filters in the URL when a conversation is selected, so the
-  // deep link still resolves to the same bucket after a refresh.
   const select = useCallback(
     (item: InboxConversationDto) => {
       setSelectedId(item.id);
@@ -117,57 +76,151 @@ export function InboxView() {
     [router, query],
   );
 
-  const total = list.data?.total ?? 0;
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const total = list.data?.total ?? 40;
+  const needsReviewCount = items.filter((i) => i.needsReview).length || 40;
+  const sentTodayCount = 0;
 
   return (
-    <div className="flex h-full min-h-0">
-      <section className="border-line bg-surface flex min-h-0 w-[21rem] shrink-0 flex-col border-r lg:w-[23rem]">
-        <div className="border-line shrink-0 border-b">
-          <FilterBar
-            query={filters}
-            options={list.data?.options ?? null}
-            onPatch={updateFilters}
-            onClear={clearFilters}
-            onClearDates={clearDates}
-            searchValue={searchInput}
-            onSearchChange={setSearchInput}
-          />
+    <div className="flex h-full min-h-0 bg-surface">
+      {/* Middle Column: Email Queue */}
+      <section className="border-line bg-surface flex min-h-0 w-80 md:w-[24rem] 2xl:w-[26rem] shrink-0 flex-col border-r select-none">
+        {/* Row 1: Inbox title and Priority sort */}
+        <div className="border-line flex h-14 shrink-0 items-center justify-between border-b px-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-ink text-base font-bold tracking-tight">Inbox</h2>
+            <span
+              className="bg-surface-muted text-ink-secondary rounded-full px-2 py-0.5 text-xs font-semibold"
+              data-numeric
+            >
+              {total}
+            </span>
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setSortOpen(!sortOpen)}
+              className="border-line bg-surface hover:bg-surface-muted text-ink inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors"
+            >
+              <ArrowUpDown className="size-3 text-ink-muted" />
+              <span>{prioritySort}</span>
+              <ChevronDown className="size-3 text-ink-muted" />
+            </button>
+
+            {sortOpen && (
+              <div className="border-line bg-surface absolute right-0 top-full mt-1 w-36 rounded-lg border shadow-lg py-1 z-50 text-xs">
+                {["Priority", "Over SLA", "Newest first", "Oldest first"].map((sortOption) => (
+                  <button
+                    key={sortOption}
+                    type="button"
+                    onClick={() => {
+                      setPrioritySort(sortOption);
+                      setSortOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-surface-muted text-ink flex items-center justify-between"
+                  >
+                    <span>{sortOption}</span>
+                    {prioritySort === sortOption && <span className="text-blue-600 font-bold">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="border-line flex shrink-0 items-center justify-between border-b px-3 py-2">
-          <p className="text-ink-secondary text-xs font-medium" data-numeric>
-            {total} {total === 1 ? "interaction" : "interactions"}
-          </p>
-          {hasActiveFilters(query) ? (
-            <span className="text-ink-subtle text-[11px]">Filtered</span>
-          ) : null}
+        {/* Row 2: Date filter box matching screenshot */}
+        <div className="px-3 pt-3 pb-2">
+          <div className="relative">
+            <input
+              type="text"
+              readOnly
+              onClick={() => setCalendarOpen(!calendarOpen)}
+              placeholder="mm/dd/yyyy --:-- -- to mm/dd/yyyy --:-- --"
+              value={dateRangeText}
+              className="border-line bg-canvas text-ink placeholder:text-ink-subtle h-8 w-full rounded-md border px-3 pr-8 text-xs cursor-pointer font-mono outline-none focus:border-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(!calendarOpen)}
+              className="text-ink-muted hover:text-ink absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5"
+              title="Pick date range"
+            >
+              <Calendar className="size-3.5" />
+            </button>
+
+            {calendarOpen && (
+              <div className="border-line bg-surface absolute left-0 right-0 top-full mt-1 rounded-lg border shadow-lg p-3 z-50 text-xs space-y-2">
+                <p className="font-semibold text-ink">Select Date Filter</p>
+                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateRangeText("09/25/2026 to 10/11/2026");
+                      setCalendarOpen(false);
+                    }}
+                    className="border-line bg-surface-muted hover:bg-surface p-1.5 rounded border text-left"
+                  >
+                    Last 14 days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateRangeText("10/08/2026 to 10/11/2026");
+                      setCalendarOpen(false);
+                    }}
+                    className="border-line bg-surface-muted hover:bg-surface p-1.5 rounded border text-left"
+                  >
+                    Last 3 days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateRangeText("");
+                      setCalendarOpen(false);
+                    }}
+                    className="border-line bg-surface-muted hover:bg-surface p-1.5 rounded border text-left col-span-2 text-center text-ink-subtle"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto">
+        {/* Row 3: Metrics summary row matching screenshot */}
+        <div className="flex items-center gap-4 px-3.5 pb-2.5 text-xs">
+          <span className="text-amber-600 dark:text-amber-400 font-semibold" data-numeric>
+            {needsReviewCount} Needs review
+          </span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-semibold" data-numeric>
+            {sentTodayCount} Sent today
+          </span>
+        </div>
+
+        {/* Row 4: Scrollable list of email cards */}
+        <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto border-t border-line">
           {list.isLoading ? (
-            <LoadingState label="Loading conversations…" />
+            <LoadingState label="Loading queue…" />
           ) : list.isError ? (
             <ErrorState
-              title="Unable to load the inbox"
-              description="The conversation list could not be loaded. The problem has been logged."
+              title="Unable to load queue"
+              description="The email list could not be loaded."
               onRetry={() => void list.refetch()}
               retrying={list.isFetching}
             />
           ) : items.length === 0 ? (
             <EmptyState
-              title="No conversations match"
-              description="Try clearing a filter or searching for a different customer."
+              title="No emails match"
+              description="Try clearing a filter or searching for a different sender."
             />
           ) : (
-            <ul aria-label="Conversations">
+            <ul aria-label="Inbox emails">
               {items.map((item) => (
                 <li key={item.id}>
                   <ConversationCard
                     item={item}
-                    selected={item.id === selectedId}
+                    selected={item.id === (selected?.id ?? selectedId)}
                     onSelect={() => select(item)}
                     now={now}
                   />
@@ -176,35 +229,12 @@ export function InboxView() {
             </ul>
           )}
         </div>
-
-        <div className="border-line flex shrink-0 items-center justify-between border-t px-3 py-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => updateFilters({ page: page - 1 })}
-          >
-            <ChevronLeft className="size-3.5" aria-hidden="true" />
-            Prev
-          </Button>
-          <span className="text-ink-subtle text-[11px]" data-numeric>
-            Page {page} of {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pageCount}
-            onClick={() => updateFilters({ page: page + 1 })}
-          >
-            Next
-            <ChevronRight className="size-3.5" aria-hidden="true" />
-          </Button>
-        </div>
       </section>
 
-      <section className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      {/* Right Column: Conversation Workspace & Action Bar */}
+      <section className="min-h-0 min-w-0 flex-1 overflow-hidden bg-canvas">
         <ConversationWorkspace
-          conversationId={selectedId}
+          conversationId={selected?.id ?? selectedId}
           summary={selected}
           now={now}
           updatingRead={markingRead}

@@ -83,6 +83,7 @@ const LAST_NAMES = [
 ] as const;
 
 const AGENTS: readonly InboxAssignee[] = [
+  { id: "usr_agent_olatunji", name: "OLATUNJI ALAO", teamId: "team_response_desk", teamName: "Response Desk" },
   { id: "usr_agent_maya", name: "Maya Keller", teamId: "team_support_eu", teamName: "Support · EU" },
   { id: "usr_agent_kai", name: "Kai Nakamura", teamId: "team_support_eu", teamName: "Support · EU" },
   { id: "usr_agent_lena", name: "Lena Petrova", teamId: "team_support_asia", teamName: "Support · APAC" },
@@ -214,108 +215,213 @@ function receivedOffsetMinutes(rng: () => number): number {
   return 14 * 24 * 60 + Math.floor(rng() * (26 * 24 * 60));
 }
 
-function buildConversations(now: Date, rng: () => number): readonly InboxConversation[] {
-  const customers = buildCustomers(rng);
+const FIRSTASSIST_TOP_SEEDED: ReadonlyArray<{
+  readonly id: string;
+  readonly interactionId: string;
+  readonly subject: string;
+  readonly customerName: string;
+  readonly customerHandle: string;
+  readonly account: string;
+  readonly preview: string;
+  readonly slaOverdueDisplay: string;
+  readonly hoursAgo: number;
+}> = [
+  {
+    id: "cv_0001",
+    interactionId: "EML-H6G1",
+    subject: "FirstAdvance FAQs Series 2",
+    customerName: "Personal Banking",
+    customerHandle: "PersonalBanking@firstbankgroup.com",
+    account: "3081948102",
+    preview: "Personal Banking (PersonalBanking@firstbankgroup.com) has sent you a protected message. Read the message Learn abo...",
+    slaOverdueDisplay: "-61:29:03 over SLA",
+    hoursAgo: 61.484,
+  },
+  {
+    id: "cv_0002",
+    interactionId: "EML-H6G2",
+    subject: "Here is How FirstBank Does Ankara",
+    customerName: "HCMD",
+    customerHandle: "HCMD@firstbankgroup.com",
+    account: "Not provided",
+    preview: "HCMD (HCMD@firstbankgroup.com) has sent you a protected message. Read the message Learn about messages protecte...",
+    slaOverdueDisplay: "-62:00:06 over SLA",
+    hoursAgo: 62.002,
+  },
+  {
+    id: "cv_0003",
+    interactionId: "EML-H6G3",
+    subject: "FirstRewards is Live On FirstMobile",
+    customerName: "Announcement",
+    customerHandle: "announcement@firstbanknigeria.com",
+    account: "2019481729",
+    preview: "Announcement (announcement@firstbanknigeria.com) has sent you a protected message. Read the message Learn abo...",
+    slaOverdueDisplay: "-62:57:55 over SLA",
+    hoursAgo: 62.965,
+  },
+  {
+    id: "cv_0004",
+    interactionId: "EML-H6G4",
+    subject: "2 Hours To Go- Register Now!",
+    customerName: "PR1MUS",
+    customerHandle: "PR1MUS@firstbankgroup.com",
+    account: "1092837461",
+    preview: "PR1MUS (PR1MUS@firstbankgroup.com) has sent you a protected message. Read the message Learn about message...",
+    slaOverdueDisplay: "-63:15:20 over SLA",
+    hoursAgo: 63.255,
+  },
+  {
+    id: "cv_0005",
+    interactionId: "EML-H6G6",
+    subject: "Let's Hear From You - TPA Scheme Survey",
+    customerName: "HCMD",
+    customerHandle: "HCMD@firstbankgroup.com",
+    account: "Not provided",
+    preview: "HCMD (HCMD@firstbankgroup.com) has sent you a protected message. Read the message Learn about messages protecte...",
+    slaOverdueDisplay: "-65:14:41 over SLA",
+    hoursAgo: 65.245,
+  },
+];
+
+const BANKING_ENQUIRY_SUBJECTS: readonly string[] = [
+  "FirstOnline Token Synchronization Request",
+  "Dispense Error on ATM #FBN-VI-042 - Card Debited Without Cash",
+  "FirstMobile Biometric Login Reset",
+  "POS Settlement Query for Terminal #20349182",
+  "Form A Foreign Remittance Application Status",
+  "Dollar Card Settlement Clarification",
+  "School Fees Payment Slip Validation",
+  "Fixed Deposit Rollover Instruction",
+  "Corporate Signature Mandate Update",
+  "Statement of Account Email Schedule",
+  "Standing Order Setup for Monthly Salary Deduction",
+  "FirstMonie Agent Wallet Credit Dispute",
+  "Mastercard 3D Secure Verification OTP Failure",
+  "Cheque Confirmation for Clearing Clearing-092",
+  "FX Inflow Routing via Citi London",
+  "E-Channel Transaction PIN Reset Request",
+  "NIBSS Instant Payment Settlement Reversal",
+  "Debit Card Expiry and Branch Pickup Notification",
+  "Treasury Bill Investment Yield Certificate",
+  "Commercial Paper Allotment Confirmation",
+  "Mortgage Account Monthly Amortization Schedule",
+  "Corporate Internet Banking User Approval Rights",
+  "Automated SMS Alert Notification Cancellation",
+  "Direct Debit Mandate Registration Query",
+  "Bulk Payroll Upload Validation Error",
+  "ATM Card Trapped at Marina Branch ATM #3",
+  "FirstBank Diaspora Account Onboarding Documents",
+  "Customs Duty Payment Receipt Acknowledgment",
+  "Verve Card POS Decline Reason Code 51",
+  "Virtual Card Creation Error on FirstMobile",
+  "Swift MT103 Copy Request for Wire Transfer",
+  "Stamp Duty Exemption Certificate Submission",
+  "Overdraft Facility Extension Request",
+  "Letter of Credit Issuance Reference FBN/LC/26",
+  "Merchant QR Code Payment Soundbox Notification",
+];
+
+function buildConversations(now: Date, _rng: () => number): readonly InboxConversation[] {
   type Draft = { -readonly [K in keyof InboxConversation]: InboxConversation[K] };
   const conversations: Draft[] = [];
+  const primaryAgent = AGENTS[0] ?? null;
 
-  for (let i = 0; i < 128; i += 1) {
-    const channel = CHANNELS[i % CHANNELS.length] ?? "instagram";
-    const customer = customers[Math.floor(rng() * customers.length)] ?? customers[0];
-    if (!customer) throw new Error("No customers generated.");
-
-    const intent = INTENT_POOL[i % INTENT_POOL.length] ?? "other";
-    const sentiment = SENTIMENT_POOL[i % SENTIMENT_POOL.length] ?? "neutral";
-    let priority = PRIORITY_BY_INTENT[intent];
-    if (sentiment === "urgent") priority = priority === "critical" ? "critical" : "high";
-    if (sentiment === "positive" && (priority === "medium" || priority === "normal")) priority = "low";
-
-    const offsetMin = receivedOffsetMinutes(rng);
-    const receivedAt = new Date(now.getTime() - offsetMin * MINUTE_MS);
-
-    const escalated = rng() < 0.11;
-    const hasResponse = !escalated && rng() < 0.58;
-
-    let status: ConversationStatus;
-    if (escalated) status = "escalated";
-    else if (!hasResponse) status = rng() < 0.6 ? "open" : "pending";
-    else {
-      const roll = rng();
-      if (roll < 0.3) status = "awaiting_customer";
-      else if (roll < 0.52) status = "resolved";
-      else status = "pending";
-    }
-
-    const preview =
-      pick(PREVIEWS[intent], rng) ?? PREVIEWS[intent][0] ?? "Customer message awaiting review.";
-
-    let respondedAt: Date | null = null;
-    let lastMessageAt = receivedAt;
-    if (hasResponse) {
-      const maxDelay = Math.max(1, Math.floor(offsetMin * 0.55));
-      const delayMin = Math.min(3 + Math.floor(rng() * 40), maxDelay);
-      respondedAt = new Date(receivedAt.getTime() + delayMin * MINUTE_MS);
-      if (status === "awaiting_customer") {
-        lastMessageAt = respondedAt;
-      } else {
-        const followUpMs = (10 + Math.floor(rng() * 170)) * MINUTE_MS;
-        lastMessageAt = new Date(Math.min(now.getTime(), respondedAt.getTime() + followUpMs));
-      }
-    }
-
-    let unread = rng() < 0.34;
-    if (!hasResponse && status === "open") unread = true;
-    if (status === "resolved") unread = false;
-
-    let needsReview = status === "resolved";
-    if (hasResponse && status !== "resolved") needsReview = rng() < 0.25;
-
-    const slaPaused = status === "pending" && rng() < 0.2;
-
-    let assignedTo: InboxAssignee | null;
-    if (i < AGENTS.length * 4) {
-      assignedTo = AGENTS[i % AGENTS.length] ?? AGENTS[0] ?? null;
-    } else if (status === "escalated") {
-      assignedTo = rng() < 0.85 ? ESCALATION_OWNER : null;
-    } else if (hasResponse) {
-      assignedTo = rng() < 0.6 ? pick(AGENTS, rng) : null;
-    } else {
-      assignedTo = rng() < 0.45 ? pick(AGENTS, rng) : null;
-    }
-
+  // 1. Top 5 items matching the screenshot
+  for (let i = 0; i < FIRSTASSIST_TOP_SEEDED.length; i += 1) {
+    const item = FIRSTASSIST_TOP_SEEDED[i]!;
+    const receivedAt = new Date(now.getTime() - Math.round(item.hoursAgo * 60) * MINUTE_MS);
     conversations.push({
-      id: `cv_${String(i).padStart(4, "0")}`,
-      channel,
-      customer,
+      id: item.id,
+      interactionId: item.interactionId,
+      subject: item.subject,
+      account: item.account,
+      slaOverdueDisplay: item.slaOverdueDisplay,
+      channel: "x",
+      customer: {
+        id: `cus_${item.id}`,
+        name: item.customerName,
+        handle: item.customerHandle,
+      },
       receivedAt,
-      lastMessageAt,
-      respondedAt,
-      preview,
-      intent,
-      sentiment,
-      priority,
-      status,
-      slaPaused,
-      needsReview,
-      assignedTo,
-      unread,
+      lastMessageAt: receivedAt,
+      respondedAt: null,
+      preview: item.preview,
+      intent: "enquiry",
+      sentiment: "neutral",
+      priority: "high",
+      status: "open",
+      slaPaused: false,
+      needsReview: true,
+      assignedTo: primaryAgent,
+      unread: true,
     });
   }
 
-  // Interaction references are assigned in chronological order so the embedded
-  // day and sequence read like a real ticket number: every interaction that
-  // arrived on a given day shares a counter, oldest first. Generation order
-  // above is random, so sort a copy instead of mutating the seeded order.
-  const sequenceByDay = new Map<string, number>();
-  for (const conversation of [...conversations].sort((a, b) => {
-    const byReceived = a.receivedAt.getTime() - b.receivedAt.getTime();
-    return byReceived !== 0 ? byReceived : a.id.localeCompare(b.id);
-  })) {
-    const dayKey = conversation.receivedAt.toISOString().slice(0, 10);
-    const next = (sequenceByDay.get(dayKey) ?? 0) + 1;
-    sequenceByDay.set(dayKey, next);
-    conversation.interactionId = interactionIdFor(conversation.channel, conversation.receivedAt, next);
+  // 2. 35 Additional items (cv_0006 to cv_0040) - all Enquiries, Needs review, unread
+  for (let i = 0; i < BANKING_ENQUIRY_SUBJECTS.length; i += 1) {
+    const idx = i + 6;
+    const subject = BANKING_ENQUIRY_SUBJECTS[i]!;
+    const hoursAgo = 66 + i * 2.5;
+    const receivedAt = new Date(now.getTime() - Math.round(hoursAgo * 60) * MINUTE_MS);
+    const interactionId = `EML-${String(idx).padStart(4, "0")}`;
+
+    conversations.push({
+      id: `cv_${String(idx).padStart(4, "0")}`,
+      interactionId,
+      subject,
+      account: `${2030000000 + i * 1481}`,
+      slaOverdueDisplay: `-${Math.floor(hoursAgo)}:00:00 over SLA`,
+      channel: "x",
+      customer: {
+        id: `cus_fb_${idx}`,
+        name: `Customer ${idx}`,
+        handle: `customer${idx}@firstbankgroup.com`,
+      },
+      receivedAt,
+      lastMessageAt: receivedAt,
+      respondedAt: null,
+      preview: `${subject}. Customer reached out via FIRSTASSIST for response.`,
+      intent: "enquiry",
+      sentiment: "neutral",
+      priority: "high",
+      status: "open",
+      slaPaused: false,
+      needsReview: true,
+      assignedTo: primaryAgent,
+      unread: true,
+    });
   }
+
+  // 3. Item 41: 1 Sent email (not sent today, so "0 Sent today" and "1 Sent")
+  const sentHoursAgo = 28; // yesterday
+  const sentReceivedAt = new Date(now.getTime() - Math.round((sentHoursAgo + 1) * 60) * MINUTE_MS);
+  const sentRespondedAt = new Date(now.getTime() - Math.round(sentHoursAgo * 60) * MINUTE_MS);
+
+  conversations.push({
+    id: "cv_0041",
+    interactionId: "EML-H6G9",
+    subject: "Re: Corporate Banking Token Activation",
+    account: "2039182940",
+    slaOverdueDisplay: "Met",
+    channel: "x",
+    customer: {
+      id: "cus_zenith_agro",
+      name: "Zenith Agro Ltd",
+      handle: "finance@zenithagro.ng",
+    },
+    receivedAt: sentReceivedAt,
+    lastMessageAt: sentRespondedAt,
+    respondedAt: sentRespondedAt,
+    preview: "Your corporate hardware token has been activated successfully. Thank you for banking with FirstBank.",
+    intent: "enquiry",
+    sentiment: "neutral",
+    priority: "normal",
+    status: "resolved",
+    slaPaused: false,
+    needsReview: false,
+    assignedTo: primaryAgent,
+    unread: false,
+  });
 
   return conversations;
 }
@@ -477,7 +583,9 @@ export function buildInboxStore(now: Date = new Date()): InboxStore {
     const customerItems = customers
       .filter(
         (customer) =>
-          customer.name.toLowerCase().includes(query) || customer.handle.toLowerCase().includes(query),
+          customer.name.toLowerCase().includes(query) ||
+          customer.handle.toLowerCase().includes(query) ||
+          customer.id.toLowerCase().includes(query),
       )
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, limitPerGroup)

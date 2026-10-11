@@ -245,8 +245,8 @@ export function ResponseComposer({
         <div className="space-y-2 px-3 pt-2 pb-3">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="text-ink-muted text-xs">{meta.description}</p>
-            {meta.customerFacing && mode === "public" ? (
-              <p className="text-warning text-[11px] font-medium">
+            {mode === "public" ? (
+              <p className="text-ink-secondary text-[11px]">
                 Visible publicly on the social platform.
               </p>
             ) : null}

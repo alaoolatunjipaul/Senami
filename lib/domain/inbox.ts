@@ -55,6 +55,9 @@ export interface InboxAssignee {
 export interface InboxConversation {
   readonly id: string;
   readonly interactionId?: string;
+  readonly subject?: string;
+  readonly account?: string;
+  readonly slaOverdueDisplay?: string;
   readonly channel: ChannelId;
   readonly customer: InboxCustomer;
   /** When the customer first reached out; the SLA clock starts here. */
@@ -260,10 +263,13 @@ export function slaEvaluationOf(item: SlaEvaluationInput, now: Date = new Date()
     const haystack = [
       item.customer.name,
       item.customer.handle,
+      item.subject ?? "",
+      item.account ?? "",
       item.preview,
       INTENT_META[item.intent],
       item.id,
       item.interactionId ?? "",
+      item.customer.id,
     ]
       .join(" ")
       .toLowerCase();
@@ -504,6 +510,9 @@ export function compareByRecency(a: InboxConversation, b: InboxConversation): nu
 export interface InboxConversationDto {
   readonly id: string;
   readonly interactionId?: string;
+  readonly subject?: string;
+  readonly account?: string;
+  readonly slaOverdueDisplay?: string;
   readonly channel: ChannelId;
   readonly channelLabel?: string;
   readonly customer: InboxCustomer;
@@ -526,6 +535,9 @@ export function toInboxConversationDto(item: InboxConversation): InboxConversati
   return {
     id: item.id,
     interactionId: item.interactionId ?? `INT-${item.id}`,
+    subject: item.subject,
+    account: item.account,
+    slaOverdueDisplay: item.slaOverdueDisplay,
     channel: item.channel,
     channelLabel: channelLabel(item.channel),
     customer: item.customer,

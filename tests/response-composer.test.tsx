@@ -41,6 +41,7 @@ describe("ResponseComposer", () => {
       kind: "public",
       body: "Thanks for your patience.",
       attachments: [],
+      clientRequestId: expect.any(String),
     });
     await waitFor(() => expect(textarea).toHaveValue(""));
   });
@@ -74,6 +75,7 @@ describe("ResponseComposer", () => {
         kind: "internal_note",
         body: "Payments is investigating.",
         attachments: [],
+        clientRequestId: expect.any(String),
       }),
     );
   });
