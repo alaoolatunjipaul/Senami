@@ -43,7 +43,7 @@ export function TrainAiModal({ open, onOpenChange }: TrainAiModalProps) {
               <h2 id="train-ai-title" className="text-ink text-sm font-semibold">
                 Train AI Assistant
               </h2>
-              <p className="text-ink-muted text-xs">FIRSTASSIST Response Grounding & Rules</p>
+              <p className="text-ink-muted text-xs">Senami Response Grounding & Rules</p>
             </div>
           </div>
           <button
@@ -78,7 +78,7 @@ export function TrainAiModal({ open, onOpenChange }: TrainAiModalProps) {
               >
                 <option value="firstbank-core">FirstBank Core FAQ & Products Catalog (v2026.09)</option>
                 <option value="cards-ebanking">E-Banking & Card Dispute Resolutions Handbook</option>
-                <option value="protected-email">Microsoft Purview Protected Communication Handler</option>
+                <option value="social-escalation">Social Channel Escalation Playbook</option>
               </select>
             </div>
 
@@ -117,7 +117,7 @@ export function TrainAiModal({ open, onOpenChange }: TrainAiModalProps) {
           {trainingStatus === "completed" && (
             <div className="border border-emerald-200 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/40 dark:text-emerald-300 rounded-lg p-3 text-xs flex items-center gap-2">
               <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
-              <span>Model updated and aligned with FIRSTASSIST active queue.</span>
+              <span>Model updated and aligned with the Senami active queue.</span>
             </div>
           )}
 

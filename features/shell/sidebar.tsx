@@ -14,13 +14,13 @@ import {
   Edit3,
   FileText,
   HelpCircle,
-  Mail,
+  Inbox,
   MessageSquare,
   PenSquare,
 } from "lucide-react";
 
 import { FirstBankLogo } from "@/components/ui/firstbank-logo";
-import { NewEmailDialog } from "@/features/inbox/new-email-dialog";
+import { NewMessageDialog } from "@/features/inbox/new-message-dialog";
 import type { Role } from "@/lib/domain/user";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
-  const [newEmailOpen, setNewEmailOpen] = useState(false);
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
 
   const activeView = searchParams.get("view") ?? (searchParams.get("intent") ? "" : "review");
   const activeIntent = searchParams.get("intent") ?? "";
@@ -49,7 +49,7 @@ export function Sidebar({ role }: SidebarProps) {
       active: activeView === "review" && activeIntent === "",
     },
     { id: "awaiting", label: "Awaiting customer", count: 0, icon: Clock, href: "/inbox?view=awaiting" },
-    { id: "all", label: "All", count: 41, icon: Mail, href: "/inbox?view=all", active: activeView === "all" },
+    { id: "all", label: "All", count: 41, icon: Inbox, href: "/inbox?view=all", active: activeView === "all" },
     { id: "sent", label: "Sent", count: 1, icon: ArrowUpRight, href: "/inbox?view=sent", active: activeView === "sent" },
     { id: "manual", label: "Manual", count: 0, icon: Edit3, href: "/inbox?view=manual" },
   ];
@@ -77,10 +77,10 @@ export function Sidebar({ role }: SidebarProps) {
             {!collapsed && (
               <div className="min-w-0 flex-1 truncate">
                 <span className="text-ink block text-xs font-bold tracking-tight uppercase">
-                  FIRSTASSIST
+                  Senami
                 </span>
                 <span className="text-ink-muted -mt-0.5 block truncate text-[11px]">
-                  Response Desk
+                  Social Desk
                 </span>
               </div>
             )}
@@ -100,15 +100,15 @@ export function Sidebar({ role }: SidebarProps) {
         <div className="p-3">
           <button
             type="button"
-            onClick={() => setNewEmailOpen(true)}
+            onClick={() => setNewMessageOpen(true)}
             className={cn(
               "bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 rounded-lg font-medium shadow-xs transition-colors duration-150",
               collapsed ? "size-10 p-0" : "w-full py-2 px-3 text-xs",
             )}
-            title="Compose new email"
+            title="Compose new message"
           >
             <PenSquare className="size-3.5 shrink-0" />
-            {!collapsed && <span>New email</span>}
+            {!collapsed && <span>New message</span>}
           </button>
         </div>
 
@@ -252,7 +252,7 @@ export function Sidebar({ role }: SidebarProps) {
         </div>
       </aside>
 
-      <NewEmailDialog open={newEmailOpen} onOpenChange={setNewEmailOpen} />
+      <NewMessageDialog open={newMessageOpen} onOpenChange={setNewMessageOpen} />
     </>
   );
 }

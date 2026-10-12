@@ -107,14 +107,14 @@ export function ConversationWorkspace({
       <div className="flex h-full items-center justify-center">
         <EmptyState
           title="No conversation selected"
-          description="Choose an email from the inbox list to view its thread and response tools."
+          description="Choose a conversation from the inbox list to view its thread and response tools."
         />
       </div>
     );
   }
 
   if (!conversation && detail.isLoading) {
-    return <LoadingState label="Loading email conversation…" />;
+    return <LoadingState label="Loading conversation…" />;
   }
 
   if (!conversation) {
@@ -129,7 +129,7 @@ export function ConversationWorkspace({
   }
 
   const subject = conversation.subject || "Let's Hear From You - TPA Scheme Survey";
-  const emailRef = conversation.interactionId || "EML-H6G6";
+  const interactionRef = conversation.interactionId || "EML-H6G6";
   const accountRef = conversation.account || "Not provided";
   const overdueDisplay = conversation.slaOverdueDisplay || "-65:14:41 over SLA";
 
@@ -192,7 +192,7 @@ export function ConversationWorkspace({
               className="border-line bg-surface hover:bg-surface-muted text-ink inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
             >
               <History className="size-3 text-ink-muted" />
-              <span>Email history</span>
+              <span>Interaction history</span>
             </button>
 
             <button
@@ -228,8 +228,8 @@ export function ConversationWorkspace({
           {/* Metadata labels row */}
           <div className="flex items-center gap-6 py-3 text-xs border-b border-line">
             <div>
-              <span className="text-ink-subtle font-medium text-[11px] uppercase mr-2">EMAIL</span>
-              <span className="text-ink font-mono font-medium">{emailRef}</span>
+              <span className="text-ink-subtle font-medium text-[11px] uppercase mr-2">INTERACTION</span>
+              <span className="text-ink font-mono font-medium">{interactionRef}</span>
             </div>
             <div>
               <span className="text-ink-subtle font-medium text-[11px] uppercase mr-2">ACCOUNT</span>
@@ -285,7 +285,7 @@ export function ConversationWorkspace({
               </p>
 
               <div className="text-ink-subtle text-[11px] pt-1 border-t border-line space-y-0.5">
-                <p>Learn More on email encryption.</p>
+                <p>Learn more on message encryption.</p>
                 <p>Microsoft Corporation, One Microsoft Way, Redmond, WA 98052</p>
               </div>
             </div>

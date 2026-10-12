@@ -20,7 +20,7 @@ import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Customer context (Response Desk right column).
+ * Customer context (Senami right column).
  *
  * The facts an agent needs before replying: who they are, what is still open,
  * and what happened before. It renders as a full-height column when it owns the

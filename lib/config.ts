@@ -6,22 +6,25 @@
  * access lives exclusively in `lib/env.ts`.
  */
 export const APP_CONFIG = {
-  name: "FIRSTASSIST",
-  shortName: "FIRSTASSIST",
-  deskName: "Response Desk",
-  tagline: "FirstBank Response Desk & Service Operations",
+  name: "Senami",
+  shortName: "Senami",
+  deskName: "Social Desk",
+  tagline: "Social Customer Service for Social Media Teams",
   description:
-    "FirstBank FIRSTASSIST unifies customer emails, protected communications, and enquiries into a single operational workspace with SLA control, AI assistance, escalation routing, and complete audit trail.",
+    "Senami unifies public posts, comments, mentions and direct messages into a single " +
+    "operational inbox for FirstBank's social media teams, with SLA control, AI assistance, " +
+    "escalation routing and a complete audit trail.",
   supportEmail: "firstcontact@firstbankgroup.com",
 } as const;
 
 /**
- * Demo configuration.
+ * Senami is a demonstration platform. Every customer, social account, message
+ * and transaction in this build is synthetic.
  */
 export const DEMO_CONFIG = {
-  enabled: false,
+  enabled: true,
   label: "DEMO ENVIRONMENT",
-  description: "FirstBank FIRSTASSIST Response Desk simulation.",
+  description: "All data, social accounts and AI responses in Senami are synthetic.",
 } as const;
 
 /** Default response time targets, in minutes, keyed by priority. */

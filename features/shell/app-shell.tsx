@@ -56,7 +56,7 @@ export function AppShell({
               {/* Left Title */}
               <div className="flex items-center shrink-0">
                 <h1 className="text-ink text-base md:text-lg font-bold tracking-tight">
-                  Response Desk
+                  Social Desk
                 </h1>
               </div>
 
@@ -64,7 +64,7 @@ export function AppShell({
               <div className="flex-1 max-w-xl">
                 <GlobalSearch
                   search={search}
-                  placeholder="Search email ID, sender, account, subject."
+                  placeholder="Search interaction ID, sender, handle, or subject."
                   className="w-full"
                 />
               </div>
@@ -127,7 +127,7 @@ export function AppShell({
                 {/* View/Layout Icon Button */}
                 <button
                   type="button"
-                  onClick={() => toast.info("Display layout configured for Response Desk 3-column split view.")}
+                  onClick={() => toast.info("Display layout configured for Senami 3-column split view.")}
                   className="border-line text-ink-secondary hover:text-ink hover:bg-surface-muted flex size-8 items-center justify-center rounded-lg border transition-colors"
                   title="Layout switcher"
                 >

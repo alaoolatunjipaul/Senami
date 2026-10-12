@@ -448,7 +448,7 @@ Learn about messages protected by Microsoft Purview Message Encryption.
 
 Privacy Statement
 
-Learn More on email encryption.
+Learn more on message encryption.
 Microsoft Corporation, One Microsoft Way, Redmond, WA 98052`,
         createdAt: t0,
         attachments: [

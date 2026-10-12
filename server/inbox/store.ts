@@ -83,7 +83,7 @@ const LAST_NAMES = [
 ] as const;
 
 const AGENTS: readonly InboxAssignee[] = [
-  { id: "usr_agent_olatunji", name: "OLATUNJI ALAO", teamId: "team_response_desk", teamName: "Response Desk" },
+  { id: "usr_agent_olatunji", name: "OLATUNJI ALAO", teamId: "team_response_desk", teamName: "Social Desk" },
   { id: "usr_agent_maya", name: "Maya Keller", teamId: "team_support_eu", teamName: "Support · EU" },
   { id: "usr_agent_kai", name: "Kai Nakamura", teamId: "team_support_eu", teamName: "Support · EU" },
   { id: "usr_agent_lena", name: "Lena Petrova", teamId: "team_support_asia", teamName: "Support · APAC" },
@@ -215,7 +215,7 @@ function receivedOffsetMinutes(rng: () => number): number {
   return 14 * 24 * 60 + Math.floor(rng() * (26 * 24 * 60));
 }
 
-const FIRSTASSIST_TOP_SEEDED: ReadonlyArray<{
+const SENAMI_TOP_SEEDED: ReadonlyArray<{
   readonly id: string;
   readonly interactionId: string;
   readonly subject: string;
@@ -327,8 +327,8 @@ function buildConversations(now: Date, _rng: () => number): readonly InboxConver
   const primaryAgent = AGENTS[0] ?? null;
 
   // 1. Top 5 items matching the screenshot
-  for (let i = 0; i < FIRSTASSIST_TOP_SEEDED.length; i += 1) {
-    const item = FIRSTASSIST_TOP_SEEDED[i]!;
+  for (let i = 0; i < SENAMI_TOP_SEEDED.length; i += 1) {
+    const item = SENAMI_TOP_SEEDED[i]!;
     const receivedAt = new Date(now.getTime() - Math.round(item.hoursAgo * 60) * MINUTE_MS);
     conversations.push({
       id: item.id,
@@ -380,7 +380,7 @@ function buildConversations(now: Date, _rng: () => number): readonly InboxConver
       receivedAt,
       lastMessageAt: receivedAt,
       respondedAt: null,
-      preview: `${subject}. Customer reached out via FIRSTASSIST for response.`,
+      preview: `${subject}. Customer reached out via Senami for response.`,
       intent: "enquiry",
       sentiment: "neutral",
       priority: "high",

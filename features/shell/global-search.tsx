@@ -45,7 +45,7 @@ export function GlobalSearch({
   onNavigate,
   debounceMs = DEFAULT_DEBOUNCE_MS,
   minQuery = DEFAULT_MIN_QUERY,
-  placeholder = "Search Interaction ID, customer, handle, email, or message…",
+  placeholder = "Search Interaction ID, customer, handle, or message…",
   className,
 }: GlobalSearchProps) {
   const [state, setState] = useState<SearchState>({ status: "idle" });

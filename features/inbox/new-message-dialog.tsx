@@ -4,17 +4,17 @@ import { useState } from "react";
 import { Send, X, Paperclip, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-export interface NewEmailDialogProps {
+export interface NewMessageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
+export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [priority, setPriority] = useState<"normal" | "high" | "urgent">("normal");
-  const [department, setDepartment] = useState("Response Desk");
+  const [queue, setQueue] = useState("Social Desk");
   const [sending, setSending] = useState(false);
 
   if (!open) return null;
@@ -22,18 +22,18 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!to.trim()) {
-      toast.error("Please enter a recipient email address.");
+      toast.error("Please enter a recipient.");
       return;
     }
     if (!subject.trim()) {
-      toast.error("Please enter an email subject.");
+      toast.error("Please enter a subject.");
       return;
     }
 
     setSending(true);
     setTimeout(() => {
       setSending(false);
-      toast.success(`Email sent successfully to ${to}!`);
+      toast.success(`Message sent successfully to ${to}!`);
       onOpenChange(false);
       setTo("");
       setSubject("");
@@ -46,7 +46,7 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="new-email-title"
+        aria-labelledby="new-message-title"
         className="border-line bg-surface flex w-full max-w-2xl flex-col rounded-xl border shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
       >
         {/* Header */}
@@ -56,10 +56,10 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
               <Send className="size-3.5" />
             </span>
             <div>
-              <h2 id="new-email-title" className="text-ink text-sm font-semibold">
-                Compose New Email
+              <h2 id="new-message-title" className="text-ink text-sm font-semibold">
+                Compose New Message
               </h2>
-              <p className="text-ink-muted text-xs">FIRSTASSIST Response Desk</p>
+              <p className="text-ink-muted text-xs">Senami Social Desk</p>
             </div>
           </div>
           <button
@@ -74,14 +74,14 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col p-5 gap-3.5">
           <div className="flex items-center gap-3">
-            <label htmlFor="new-email-to" className="text-ink-secondary w-16 text-xs font-medium">
+            <label htmlFor="new-message-to" className="text-ink-secondary w-16 text-xs font-medium">
               To:
             </label>
             <input
-              id="new-email-to"
-              type="email"
+              id="new-message-to"
+              type="text"
               required
-              placeholder="customer@domain.com, branch@firstbankgroup.com"
+              placeholder="@handle, customer@domain.com or channel profile"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="border-line bg-canvas text-ink placeholder:text-ink-subtle h-9 flex-1 rounded-md border px-3 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -89,11 +89,11 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <label htmlFor="new-email-subject" className="text-ink-secondary w-16 text-xs font-medium">
+            <label htmlFor="new-message-subject" className="text-ink-secondary w-16 text-xs font-medium">
               Subject:
             </label>
             <input
-              id="new-email-subject"
+              id="new-message-subject"
               type="text"
               required
               placeholder="Enter subject…"
@@ -122,11 +122,11 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
               <span className="text-ink-secondary font-medium">Queue:</span>
               <select
                 aria-label="Queue"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                value={queue}
+                onChange={(e) => setQueue(e.target.value)}
                 className="border-line bg-canvas text-ink h-8 rounded-md border px-2 text-xs outline-none focus:border-blue-500"
               >
-                <option value="Response Desk">Response Desk</option>
+                <option value="Social Desk">Social Desk</option>
                 <option value="Card Services">Card Services</option>
                 <option value="E-Banking Operations">E-Banking Operations</option>
                 <option value="FirstContact Call Center">FirstContact Call Center</option>
@@ -135,13 +135,13 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
           </div>
 
           <div className="flex flex-col gap-1.5 pt-1">
-            <label htmlFor="new-email-body" className="text-ink-secondary text-xs font-medium">
+            <label htmlFor="new-message-body" className="text-ink-secondary text-xs font-medium">
               Message:
             </label>
             <textarea
-              id="new-email-body"
+              id="new-message-body"
               rows={7}
-              placeholder="Type your message here. Professional FirstBank email greeting and sign-off will be automatically appended."
+              placeholder="Type your message here. A professional FirstBank greeting and sign-off will be automatically appended."
               value={body}
               onChange={(e) => setBody(e.target.value)}
               className="border-line bg-canvas text-ink placeholder:text-ink-subtle resize-none rounded-md border p-3 text-xs leading-relaxed outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -156,7 +156,7 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
               onClick={() => {
                 setSubject("FirstBank Response: Enquiry Follow-up");
                 setBody(
-                  "Dear Valued Customer,\n\nThank you for contacting FirstBank Response Desk. We are pleased to confirm that your enquiry is currently being reviewed by our dedicated team.\n\nBest regards,\nOLATUNJI ALAO\nResponse Desk | FirstBank",
+                  "Hi there,\n\nThanks for reaching out to FirstBank. We're pleased to confirm that your enquiry is being reviewed by our team and we'll get back to you shortly.\n\nBest regards,\nOLATUNJI ALAO\nSocial Desk | FirstBank",
                 );
               }}
               className="border-line bg-surface-muted text-ink-secondary hover:text-ink hover:bg-surface rounded-md border px-2 py-1 text-[11px] transition-colors"
@@ -168,7 +168,7 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
               onClick={() => {
                 setSubject("FirstBank Service Update: Card Security Notice");
                 setBody(
-                  "Dear Customer,\n\nWe are writing to provide you with an important update regarding your account security.\n\nPlease remember FirstBank will never request your BVN, card PIN, or OTP.\n\nWarm regards,\nFirstBank Response Team",
+                  "Hi there,\n\nWe wanted to share an important update regarding your account security.\n\nPlease remember FirstBank will never request your BVN, card PIN, or OTP.\n\nWarm regards,\nFirstBank Response Team",
                 );
               }}
               className="border-line bg-surface-muted text-ink-secondary hover:text-ink hover:bg-surface rounded-md border px-2 py-1 text-[11px] transition-colors"
@@ -190,10 +190,10 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
               <button
                 type="button"
                 onClick={() => {
-                  toast.info("AI draft suggested based on FirstBank standard email tone.");
+                  toast.info("AI draft suggested based on FirstBank standard response tone.");
                   if (!body) {
                     setBody(
-                      "Dear Valued Customer,\n\nThank you for reaching out to FirstBank. We have received your request and our team is actively addressing it.\n\nWarm regards,\nOLATUNJI ALAO\nResponse agent | FirstBank",
+                      "Hi there,\n\nThanks for reaching out to FirstBank. We've received your request and our team is actively working on it.\n\nWarm regards,\nOLATUNJI ALAO\nSocial Desk | FirstBank",
                     );
                   }
                 }}
@@ -218,7 +218,7 @@ export function NewEmailDialog({ open, onOpenChange }: NewEmailDialogProps) {
                 className="bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-medium shadow-xs transition-colors disabled:opacity-50"
               >
                 <Send className="size-3.5" />
-                {sending ? "Sending…" : "Send email"}
+                {sending ? "Sending…" : "Send message"}
               </button>
             </div>
           </div>

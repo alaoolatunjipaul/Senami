@@ -32,7 +32,7 @@ export function ResponseComposerModal({
           : `Re: Enquiry [${conversation.interactionId ?? conversation.id}]`,
       );
       setBody(
-        `Dear ${conversation.customer.name},\n\nThank you for reaching out to FirstBank Response Desk regarding "${conversation.subject || "your enquiry"}".\n\nWe have received and reviewed your protected communication. We are currently processing this with our technical operations team and will update you accordingly.\n\nBest regards,\nOLATUNJI ALAO\nResponse agent | FIRSTASSIST Desk\nFirstBank Nigeria`,
+        `Hi ${conversation.customer.name},\n\nThanks for reaching out to FirstBank regarding "${conversation.subject || "your enquiry"}".\n\nWe've received your message and our team is looking into it now. We'll get back to you shortly.\n\nBest regards,\nOLATUNJI ALAO\nSocial response agent | Senami\nFirstBank Nigeria`,
       );
     }
   }, [conversation]);
@@ -84,7 +84,7 @@ export function ResponseComposerModal({
               <h2 id="composer-modal-title" className="text-ink text-sm font-semibold">
                 Send Response
               </h2>
-              <p className="text-ink-muted text-xs">FIRSTASSIST Response Desk</p>
+              <p className="text-ink-muted text-xs">Senami Social Desk</p>
             </div>
           </div>
           <button
@@ -153,7 +153,7 @@ export function ResponseComposerModal({
               type="button"
               onClick={() => {
                 toast.info("AI polish applied to message.");
-                setBody((prev) => `${prev}\n\n[Verified by FIRSTASSIST Automated Governance Guardrails]`);
+                setBody((prev) => `${prev}\n\n[Verified by Senami Automated Governance Guardrails]`);
               }}
               className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
             >

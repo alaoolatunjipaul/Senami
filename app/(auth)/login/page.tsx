@@ -37,13 +37,13 @@ export default async function LoginPage({
       <div className="flex items-center gap-3 mb-2">
         <FirstBankLogo size="lg" />
         <div>
-          <h1 className="text-ink text-lg font-bold tracking-tight">FIRSTASSIST Response Desk</h1>
-          <p className="text-ink-muted text-xs">FirstBank Customer Service Operations Platform</p>
+          <h1 className="text-ink text-lg font-bold tracking-tight">Senami</h1>
+          <p className="text-ink-muted text-xs">FirstBank Social Customer Service Platform</p>
         </div>
       </div>
 
       <p className="text-ink-muted mt-3 text-sm">
-        Select your account to access the Response Desk.
+        Select your account to access the social response desk.
       </p>
 
       {reason === "unknown-role" ? (

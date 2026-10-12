@@ -35,7 +35,7 @@ function getAvatarStyle(name: string): { bg: string; text: string; initials: str
 export function ConversationCard({ item, selected, onSelect, now }: ConversationCardProps) {
   const sla = slaEvaluationOf(item, now);
   const avatar = getAvatarStyle(item.customer.name);
-  const subject = item.subject || "FirstBank Customer Enquiry";
+  const subject = item.subject || "FirstBank Customer Message";
   const overdueText = item.slaOverdueDisplay || `${sla.label}`;
 
   return (

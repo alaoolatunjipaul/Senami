@@ -82,7 +82,7 @@ export function InboxView() {
 
   return (
     <div className="flex h-full min-h-0 bg-surface">
-      {/* Middle Column: Email Queue */}
+      {/* Middle Column: Conversation Queue */}
       <section className="border-line bg-surface flex min-h-0 w-80 md:w-[24rem] 2xl:w-[26rem] shrink-0 flex-col border-r select-none">
         {/* Row 1: Inbox title and Priority sort */}
         <div className="border-line flex h-14 shrink-0 items-center justify-between border-b px-4">
@@ -198,24 +198,24 @@ export function InboxView() {
           </span>
         </div>
 
-        {/* Row 4: Scrollable list of email cards */}
+        {/* Row 4: Scrollable list of conversation cards */}
         <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto border-t border-line">
           {list.isLoading ? (
             <LoadingState label="Loading queue…" />
           ) : list.isError ? (
             <ErrorState
               title="Unable to load queue"
-              description="The email list could not be loaded."
+              description="The conversation list could not be loaded."
               onRetry={() => void list.refetch()}
               retrying={list.isFetching}
             />
           ) : items.length === 0 ? (
             <EmptyState
-              title="No emails match"
+              title="No conversations match"
               description="Try clearing a filter or searching for a different sender."
             />
           ) : (
-            <ul aria-label="Inbox emails">
+            <ul aria-label="Inbox conversations">
               {items.map((item) => (
                 <li key={item.id}>
                   <ConversationCard

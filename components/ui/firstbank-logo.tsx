@@ -20,7 +20,7 @@ export function FirstBankLogo({ className, size = "md" }: FirstBankLogoProps) {
         sizeClasses,
         className,
       )}
-      title="FirstBank FIRSTASSIST"
+      title="FirstBank Senami"
       aria-label="FirstBank Logo"
     >
       <svg
